@@ -36,7 +36,16 @@ Menyapa anggota baru secara otomatis dengan format dinamis dan mention interakti
 > - `{channel}`: Mention channel rujukan obrolan (`#general-chat`)
 > - `{memberCount}`: Jumlah total member di server
 
-### 3. ✨ Tanya Jawab AI (Google Gemini API)
+### 3. 🔒 Private Room / Channel System
+Sistem pembuatan channel teks privat otomatis menggunakan role terisolasi.
+- `/create-private-channel [name] [user1] [user2] [user3]` - Membuat channel private baru dan mengundang user yang dipilih.
+  - Menggunakan sistem role dinamis: `private-room-[number]`.
+  - Otomatis menggunakan angka role terkecil yang belum terpakai (daur ulang nomor).
+  - Bot secara otomatis me-mention role private baru tersebut di dalam channel dan memberikan peringatan untuk menghapus room setelah selesai.
+- `/delete-private-channel` - Menghapus room private beserta role privatnya (dijalankan di dalam channel oleh anggota room/admin).
+- `/set-private-category` - *(Khusus Moderator/Admin)* Menentukan kategori Discord tempat private room akan dibuat.
+
+### 4. ✨ Tanya Jawab AI (Google Gemini API)
 Bertanya apa saja langsung dijawab oleh AI Gemini cerdas dari Google.
 - **Prefix Command:**
   - `[prefix]ask <pertanyaan>` (contoh: `!ask Siapakah penemu internet?`)
@@ -45,12 +54,12 @@ Bertanya apa saja langsung dijawab oleh AI Gemini cerdas dari Google.
   - `/ask question:<pertanyaan>`
 - Dilengkapi otomatisasi pemecahan pesan panjang (> 2000 karakter) dan indikator status mengetik.
 
-### 4. 🔀 Ganti Prefix Perintah - *Khusus Administrator*
+### 5. 🔀 Ganti Prefix Perintah - *Khusus Administrator*
 Prefix bot dapat diubah sewaktu-waktu secara dinamis per server.
 - **Prefix Command:** `[prefix]setprefix <prefix_baru>` (contoh: `!setprefix ?` atau `!setprefix .`)
 - **Slash Command:** `/setprefix prefix:<prefix_baru>`
 
-### 5. 🤖 Perintah Bawaan Lainnya
+### 6. 🤖 Perintah Bawaan Lainnya
 - **Prefix Commands:** `[prefix]ping`, `[prefix]halo`, `[prefix]help`
 - **Slash Commands:** `/ping`, `/help`
 - Respon percakapan santai bawaan: `"halo bot"` atau `"halo"`
