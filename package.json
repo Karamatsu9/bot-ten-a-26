@@ -1,0 +1,19 @@
+{
+  "name": "ten-a-bot-discord",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "deploy": "node deploy-commands.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google/genai": "^3.6.0",
+    "discord.js": "^14.28.1",
+    "dotenv": "^18.0.10"
+  }
+}

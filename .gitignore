@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Environment Variables & Secrets (JANGAN DI-UPLOAD)
+.env
+.env.*
+!.env.example
+
+# Runtime data & Database per server
+data/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS specific files
+.DS_Store
+Thumbs.db
