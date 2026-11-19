@@ -110,6 +110,12 @@ function buildHelpPages(prefix) {
                         '• `/wa-update set/status/test/enable/disable` — Atur channel penerus pengumuman & file dari Komunitas WhatsApp kelas'
                 },
                 {
+                    name: 'Moderator & Administrator',
+                    value:
+                        '• `/wa-update login/set/status/test/enable/disable/logout` — Atur penerus pengumuman WhatsApp server ini\n' +
+                        `• \`/autorole\` atau \`${prefix}autorole set/add/remove/status/enable/disable/clear\` — Atur pemberian role otomatis untuk member baru`
+                },
+                {
                     name: 'Khusus Administrator',
                     value:
                         `• \`/setprefix\` atau \`${prefix}setprefix <prefix_baru>\` — Ubah prefix perintah teks bot\n` +

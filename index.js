@@ -22,6 +22,7 @@ const {
     startReminderLoop 
 } = require('./utils/reminderManager');
 const { startWhatsAppBridge } = require('./utils/waBridge');
+const { applyAutoRoleOnJoin, handleAutoRolePrefix } = require('./utils/autoroleManager');
 
 // Validasi Token
 if (!process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN === 'your_bot_token_here') {
@@ -203,6 +204,10 @@ client.on('messageCreate', async (message) => {
         storage.setGuildPrefix(message.guild.id, args);
         return message.reply(`✅ **Prefix bot berhasil diubah!** Sekarang gunakan \`${args}\` untuk perintah (contoh: \`${args}ask\`, \`${args}remind\`, \`${args}ping\`, \`${args}help\`).`);
     }
+    // 2b. Perintah Auto-Role (Khusus Moderator/Admin): [prefix]autorole
+    if (contentLower === `${prefix}autorole` || contentLower.startsWith(`${prefix}autorole `)) {
+        return handleAutoRolePrefix(message, prefix);
+    }
 
     // 3. Perintah Reminder (UTC+7 / Jakarta): [prefix]remind
     if (contentLower === `${prefix}remind` || contentLower.startsWith(`${prefix}remind `)) {
@@ -364,6 +369,8 @@ client.on('messageCreate', async (message) => {
 // Event ketika ada member baru yang bergabung ke server (Welcome Message)
 client.on('guildMemberAdd', async (member) => {
     try {
+        await applyAutoRoleOnJoin(member);
+        
         const config = storage.getWelcomeConfig(member.guild.id);
         
         // Cek apakah fitur diaktifkan dan channel telah disetel
