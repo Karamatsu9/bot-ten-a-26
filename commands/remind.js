@@ -10,7 +10,7 @@ const {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('remind')
-        .setDescription('Atur pengingat otomatis (Waktu Jakarta / UTC+7)')
+        .setDescription('Atur pengingat otomatis via DM (Waktu Jakarta / UTC+7)')
         .addSubcommand(sub =>
             sub.setName('set')
                 .setDescription('Buat pengingat baru')
@@ -63,7 +63,7 @@ module.exports = {
 
             const unixSeconds = Math.floor(targetMs / 1000);
             return interaction.reply({
-                content: `✅ **Pengingat disimpan!** (ID: \`${reminder.id}\`)\n• **Waktu:** ${formatWIB(targetMs)} (<t:${unixSeconds}:R>)\n• **Pesan:** ${pesan}`
+                content: `✅ **Pengingat disimpan!** (ID: \`${reminder.id}\`)\n• **Waktu:** ${formatWIB(targetMs)} (<t:${unixSeconds}:R>)\n• **Pesan:** ${pesan}\n• **Notifikasi:** Dikirim lewat **DM** *(pastikan DM dari server ini tidak dikunci)*`
             });
         }
 

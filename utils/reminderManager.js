@@ -31,10 +31,6 @@ function saveReminders(reminders) {
 
 /**
  * Mengurai string waktu user menjadi timestamp (ms) berbasis UTC+7 (Jakarta).
- * Format yang didukung:
- * - Relatif: "10m", "2j", "1j 30m", "1d", "30s"
- * - Jam WIB hari ini/besok: "19:30" atau "19.30"
- * - Tanggal & jam WIB: "20/11/2026 08:00" atau "2026-11-20 08:00"
  */
 function parseTimeWIB(input) {
     const text = input.trim();
@@ -66,7 +62,6 @@ function parseTimeWIB(input) {
         const minute = parseInt(timeOnlyMatch[2], 10);
         if (hour > 23 || minute > 59) return null;
 
-        // Ambil tanggal hari ini menurut kalender Jakarta (UTC+7)
         const nowWib = new Date(nowMs + WIB_OFFSET_MS);
         const year = nowWib.getUTCFullYear();
         const month = String(nowWib.getUTCMonth() + 1).padStart(2, '0');
@@ -76,7 +71,6 @@ function parseTimeWIB(input) {
 
         let targetMs = new Date(`${year}-${month}-${day}T${hh}:${mm}:00+07:00`).getTime();
 
-        // Jika jam tersebut sudah lewat hari ini di WIB, otomatis jadwalkan untuk besok
         if (targetMs <= nowMs) {
             targetMs += 24 * 60 * 60 * 1000;
         }
@@ -173,15 +167,25 @@ function startReminderLoop(client) {
 
         for (const item of due) {
             try {
-                const channel = await client.channels.fetch(item.channelId).catch(() => null);
                 const payload = `⏰ **Pengingat untuk <@${item.userId}>!**\n> ${item.message}`;
+                const user = await client.users.fetch(item.userId).catch(() => null);
 
-                if (channel && channel.isTextBased()) {
-                    await channel.send(payload);
-                } else {
-                    // Fallback ke DM jika channel sudah dihapus
-                    const user = await client.users.fetch(item.userId).catch(() => null);
-                    if (user) await user.send(payload);
+                // Prioritas 1: Kirim langsung lewat DM user
+                if (user) {
+                    try {
+                        await user.send(payload);
+                        continue;
+                    } catch {
+                        console.warn(`[REMINDER] Gagal mengirim DM ke ${item.userId} (DM tertutup), beralih ke channel asal.`);
+                    }
+                }
+
+                // Prioritas 2 (Fallback): Kirim ke channel asal jika DM user terkunci
+                if (item.channelId) {
+                    const channel = await client.channels.fetch(item.channelId).catch(() => null);
+                    if (channel && channel.isTextBased()) {
+                        await channel.send(`${payload}\n*(ℹ️ Gagal mengirim ke DM karena pengaturan privasi DM kamu tertutup)*`);
+                    }
                 }
             } catch (err) {
                 console.error(`[REMINDER] Gagal mengirim pengingat ${item.id}:`, err);

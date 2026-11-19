@@ -18,15 +18,15 @@ module.exports = {
             )
             .addFields(
                 { 
-                    name: '💬 Tanya Jawab & Diskusi', 
+                    name: '💬 Tanya Jawab & Analisis File', 
                     value: 
-                        `\`/ask question:<pertanyaan>\` — Tanya apa saja ke bot TEN A '26\n` +
-                        `\`${prefix}ask <pertanyaan>\` atau \`${prefix} <pertanyaan>\` — Versi prefix untuk bertanya`
+                        `\`/ask question:<pertanyaan> file:<lampiran>\` — Tanya materi atau minta bot membaca/merangkum file *(PDF, gambar, TXT, CSV, JSON, dll.)*\n` +
+                        `\`${prefix}ask <pertanyaan>\` atau \`${prefix} <pertanyaan>\` — Versi prefix *(bisa langsung lampirkan file atau reply pesan yang berisi file)*`
                 },
                 { 
-                    name: '⏰ Reminder Otomatis (WIB / UTC+7)', 
+                    name: '⏰ Reminder Otomatis (DM • WIB / UTC+7)', 
                     value: 
-                        `\`/remind set waktu:<waktu> pesan:<pesan>\` — Buat pengingat baru\n` +
+                        `\`/remind set waktu:<waktu> pesan:<pesan>\` — Buat pengingat baru *(notifikasi dikirim langsung lewat DM)*\n` +
                         `\`/remind list\` — Lihat daftar pengingat aktif milikmu\n` +
                         `\`/remind hapus id:<id>\` — Batalkan pengingat berdasarkan ID\n` +
                         `\`${prefix}remind <waktu> | <pesan>\` — Buat pengingat via prefix *(contoh: \`${prefix}remind 30m | Kumpul tugas\` atau \`${prefix}remind 19:30 | Rapat\`)*\n` +

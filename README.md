@@ -1,23 +1,30 @@
 # TEN A '26 Discord Bot 🤖
 
-Bot Discord khusus untuk server **TEN A '26** berbasis **Node.js** dan **Discord.js v14**, dilengkapi integrasi Google Gemini API, sistem pengingat otomatis zona waktu Jakarta (UTC+7), Auto-Respond Embed, Welcome Message, dan Private Channel.
+Bot Discord khusus untuk server **TEN A '26** (Teknik Konversi Energi) berbasis **Node.js** dan **Discord.js v14**, dilengkapi integrasi Google Gemini API dengan pembacaan file/gambar, sistem pengingat otomatis via DM zona waktu Jakarta (UTC+7), Auto-Respond Embed, Welcome Message, dan Private Channel.
 
 ---
 
 ## 📋 Daftar Lengkap Command
 
-### 1. 💬 Tanya Jawab & Diskusi (Google Gemini API)
-Asisten khusus server **TEN A '26** dengan proteksi identitas permanen, pemecahan pesan otomatis jika jawaban melebihi 2000 karakter, serta konversi otomatis simbol matematika/LaTeX ke karakter Unicode agar rapi di Discord.
+### 1. 💬 Tanya Jawab & Analisis File (Google Gemini API)
+Asisten khusus server **TEN A '26** untuk diskusi akademik dan pertanyaan umum. Dilengkapi proteksi identitas permanen, pemecahan pesan otomatis (> 2000 karakter), konversi simbol matematika/LaTeX ke karakter Unicode rapi, serta kemampuan membaca file lampiran.
 - **Slash Command:**
-  - `/ask question:<pertanyaan>` — Bertanya apa saja ke bot TEN A '26
+  - `/ask [question] [file]` — Bertanya ke bot dan/atau melampirkan file untuk dibaca dan dirangkum
 - **Prefix Command:**
   - `[prefix]ask <pertanyaan>` — Contoh: `!ask Jelaskan hukum pertama termodinamika`
-  - `[prefix] <pertanyaan>` — Contoh: `! Jelaskan hukum pertama termodinamika`
+  - `[prefix] <pertanyaan>` — Contoh: `! Jelaskan siklus Rankine secara singkat`
+  - **Membaca File via Prefix:** Lampirkan file langsung bersama `[prefix]ask` (atau cukup kirim file dengan caption `!`), maupun **reply pesan yang berisi file** lalu ketik `!ask jelaskan isi file ini`
+
+> **Format File yang Didukung (Maks. 15 MB):**
+> - **Dokumen & Teks:** `PDF`, `TXT`, `MD`, `CSV`, `JSON`, `XML`, `HTML`, `TEX`, `LOG`
+> - **Gambar:** `PNG`, `JPG`, `JPEG`, `WEBP`, `HEIC`
+> - **Audio & Video:** `MP3`, `WAV`, `OGG`, `FLAC`, `AAC`, `MP4`, `MOV`, `WEBM`
+> *(Catatan: Untuk file Microsoft Word/Excel/PowerPoint, silakan export ke **PDF** terlebih dahulu agar dapat dibaca).*
 
 ---
 
-### 2. ⏰ Reminder Otomatis (WIB / UTC+7)
-Sistem pengingat berbasis zona waktu **Jakarta (UTC+7)** yang tersimpan secara persisten (`data/reminders.json`). Daftar reminder bersifat pribadi per user, dan bot akan otomatis me-mention pembuatnya saat jadwal tiba.
+### 2. ⏰ Reminder Otomatis via DM (WIB / UTC+7)
+Sistem pengingat berbasis zona waktu **Jakarta (UTC+7)** yang tersimpan secara persisten (`data/reminders.json`). Daftar reminder bersifat pribadi per user, dan saat waktunya tiba bot akan mengirim notifikasi langsung melalui **Direct Message (DM)** *(dengan fallback otomatis ke channel asal jika pengaturan DM user tertutup)*.
 - **Slash Commands:**
   - `/remind set waktu:<waktu> pesan:<pesan>` — Membuat pengingat baru
   - `/remind list` — Melihat daftar pengingat aktif milikmu
@@ -36,14 +43,8 @@ Sistem pengingat berbasis zona waktu **Jakarta (UTC+7)** yang tersimpan secara p
 ---
 
 ### 3. ⚙️ Auto-Respond (Embed) — *Khusus Administrator*
-Bot secara otomatis membalas dengan pesan **Embed** ketika kata atau kalimat pemicu diketik di chat (misalnya untuk info `jadwal`, `pj`, `rules`, atau `sosmed`).
-- `/autorespond add` — Tambah auto-response embed baru:
-  - `trigger`: Kata atau kalimat pemicu (contoh: `jadwal`, `pj`, `rules`)
-  - `description`: Isi teks deskripsi utama di embed
-  - `title`: *(Opsional)* Judul embed
-  - `image`: *(Opsional)* Link URL gambar (contoh: `https://.../gambar.png`)
-  - `color`: *(Opsional)* Kode warna HEX (contoh: `#5865F2`)
-  - `match_type`: *(Opsional)* `contains` (mengandung kata) atau `exact` (sama persis)
+Bot secara otomatis membalas dengan pesan **Embed** ketika kata atau kalimat pemicu diketik di chat (misalnya kata kunci cepat `jadwal` dan `pj`).
+- `/autorespond add` — Tambah auto-response embed baru (`trigger`, `description`, `title`, `image`, `color`, `match_type`)
 - `/autorespond edit` — Mengubah embed auto-response yang sudah ada (ketik `hapus` pada opsi opsional yang ingin dikosongkan)
 - `/autorespond list` — Menampilkan daftar semua auto-response aktif di server
 - `/autorespond remove` — Menghapus auto-response berdasarkan kata pemicu
@@ -93,7 +94,7 @@ Mengubah prefix perintah teks secara dinamis per server (default: `!`).
 
 ### 1. Konfigurasi di Discord Developer Portal
 1. Buka [Discord Developer Portal](https://discord.com/developers/applications) dan pilih aplikasi bot kamu.
-2. Masuk ke menu **Bot** di bilah kiri:
+2. Masuk ke menu **Bot**:
    - Klik **Reset Token** dan salin token bot.
    - Aktifkan **Privileged Gateway Intents**:
      - ✅ **Message Content Intent** (Wajib untuk auto-respond & prefix command)

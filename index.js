@@ -263,7 +263,7 @@ client.on('messageCreate', async (message) => {
         );
     }
 
-    // 4. Perintah Tanya Bot TEN A '26: [prefix]ask <pertanyaan> ATAU [prefix] <pertanyaan>
+    // 4. Perintah Tanya Bot TEN A '26: [prefix]ask <pertanyaan> ATAU [prefix] <pertanyaan> (Mendukung Lampiran File)
     let isAskCommand = false;
     let query = '';
 
@@ -273,24 +273,35 @@ client.on('messageCreate', async (message) => {
     } else if (content.startsWith(`${prefix} `)) {
         isAskCommand = true;
         query = content.slice(prefix.length).trim();
+    } else if (content === prefix && message.attachments.size > 0) {
+        isAskCommand = true;
+        query = '';
     }
 
     if (isAskCommand) {
-        if (!query) {
-            return message.reply(`❓ Silakan masukkan pertanyaanmu!\nContoh:\n• \`${prefix}ask Siapakah penemu komputer?\`\n• \`${prefix} Jelaskan apa itu kecerdasan buatan\``);
+        // Ambil lampiran dari pesan saat ini, atau dari pesan yang di-reply jika ada
+        let attachments = Array.from(message.attachments.values());
+        if (attachments.length === 0 && message.reference) {
+            const repliedMsg = await message.fetchReference().catch(() => null);
+            if (repliedMsg && repliedMsg.attachments.size > 0) {
+                attachments = Array.from(repliedMsg.attachments.values());
+            }
         }
 
+        if (!query && attachments.length === 0) {
+            return message.reply(`❓ Silakan masukkan pertanyaanmu atau lampirkan file!\nContoh:\n• \`${prefix}ask Jelaskan konsep perpindahan panas konveksi\`\n• Kirim gambar/PDF lalu beri caption \`${prefix}ask tolong jelaskan isi file ini\``);
+        }
+
+        const finalQuery = query || 'Tolong baca, rangkum, dan jelaskan isi dari file yang dilampirkan ini.';
+
         try {
-            // Tampilkan status "bot is typing..."
             await message.channel.sendTyping();
 
-            const answer = await askGemini(query);
+            const answer = await askGemini(finalQuery, attachments);
             const chunks = splitMessage(answer, 1950);
 
-            // Kirim balasan pertama dengan mention/reply
             await message.reply(chunks[0]);
 
-            // Jika jawaban melebihi 2000 karakter, kirim bagian lanjutannya
             for (let i = 1; i < chunks.length; i++) {
                 await message.channel.send(chunks[i]);
             }
@@ -299,7 +310,10 @@ client.on('messageCreate', async (message) => {
             if (error.code === 'MISSING_API_KEY' || error.message === 'MISSING_API_KEY') {
                 return message.reply('⚠️ **Gemini API Key belum dimasukkan!**\nSilakan masukkan API Key Anda di file `.env` pada variabel `GEMINI_API_KEY=...` (Bisa didapatkan secara gratis di https://aistudio.google.com/app/apikey).');
             }
-            return message.reply('❌ Terjadi kesalahan saat menghubungi server AI. Silakan coba beberapa saat lagi.');
+            if (error.code === 'FILE_TOO_LARGE' || error.code === 'UNSUPPORTED_FILE_TYPE') {
+                return message.reply(`⚠️ ${error.message}\nFormat yang didukung: **PDF, gambar (PNG/JPG/WEBP), file teks/data (TXT, CSV, JSON, MD), serta audio/video** (maks. 15 MB). *(Untuk file Word/Excel/PPT, silakan export ke PDF terlebih dahulu).*`);
+            }
+            return message.reply('❌ Terjadi kesalahan saat memproses pertanyaan atau filemu. Silakan coba beberapa saat lagi.');
         }
         return;
     }
