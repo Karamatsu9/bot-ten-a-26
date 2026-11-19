@@ -509,10 +509,9 @@ async function askGemini(prompt, attachments = [], userInfo = null) {
         : fullTextPrompt;
 
     const modelsToTry = [
-        process.env.GEMINI_MODEL,
-        'gemini-2.5-flash',
-        'gemini-2.5-flash-lite',
-        'gemini-2.0-flash'
+        !isDeprecatedModel ? configuredModel : null,
+        'gemini-3.8-flash',
+        'gemini-3.5-flash-lite'
     ].filter(Boolean);
 
     const uniqueModels = [...new Set(modelsToTry)];
