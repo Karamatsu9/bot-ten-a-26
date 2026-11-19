@@ -1,6 +1,6 @@
 # TEN A '26 Discord Bot 🤖
 
-Bot Discord multi-server berbasis **Node.js** dan **Discord.js v14** yang awalnya dikembangkan untuk server **TEN A '26** (Teknik Konversi Energi) dan siap di-*self-host* maupun ditambahkan ke berbagai server Discord lain. Dilengkapi asisten tanya jawab berbasis **Google Gemini API** (membaca file lampiran, link YouTube, dan Google Drive), pengingat otomatis via DM zona waktu Jakarta (UTC+7), **WhatsApp Community Announcements Bridge per-server**, Auto-Respond Embed, Welcome Message, dan Private Room System.
+Bot Discord multi-server berbasis **Node.js** dan **Discord.js v14** yang awalnya dikembangkan untuk server **TEN A '26** (Teknik Konversi Energi) dan siap di-*self-host* maupun ditambahkan ke berbagai server Discord lain. Dilengkapi asisten tanya jawab berbasis **Google Gemini API** (membaca file lampiran, link YouTube, dan Google Drive), pengingat otomatis via DM zona waktu Jakarta (UTC+7), **WhatsApp Community Announcements Bridge per-server**, **Auto-Role**, Auto-Respond Embed, Welcome Message, dan Private Room System.
 
 ---
 
@@ -57,7 +57,24 @@ Meneruskan pesan dan lampiran file (dokumen, gambar, audio, video hingga 10 MB) 
 
 ---
 
-### 4. ⚙️ Auto-Respond (Embed) — *Khusus Administrator*
+### 4. 🎭 Auto-Role System (Multi-Server) — *Khusus Moderator & Administrator*
+Memberikan satu atau beberapa role secara otomatis kepada setiap anggota baru yang bergabung ke server (`data/autoroles.json`), dilengkapi validasi hierarki posisi role.
+- **Slash Commands:**
+  - `/autorole set role:<@role>` — Menetapkan 1 role utama untuk member baru
+  - `/autorole add role:<@role>` — Menambahkan role ekstra ke daftar Auto-Role
+  - `/autorole remove role:<@role>` — Menghapus salah satu role dari daftar
+  - `/autorole status` — Melihat status aktif dan daftar role yang terpasang
+  - `/autorole enable` / `/autorole disable` — Mengaktifkan atau menonaktifkan sementara fitur Auto-Role
+  - `/autorole clear` — Mengosongkan seluruh daftar Auto-Role
+- **Prefix Commands:**
+  - `[prefix]autorole set @Role` / `add @Role` / `remove @Role` — Mengatur role via prefix
+  - `[prefix]autorole status` / `enable` / `disable` / `clear` — Mengelola status dan daftar Auto-Role via prefix
+
+> **Catatan:** Pastikan posisi role bot di **Server Settings → Roles** berada **di atas** role yang akan dibagikan, serta izin **Manage Roles** dan **Server Members Intent** dalam keadaan aktif.
+
+---
+
+### 5. ⚙️ Auto-Respond (Embed) — *Khusus Administrator*
 Bot secara otomatis membalas dengan pesan **Embed** ketika kata atau kalimat pemicu diketik di chat (misalnya kata kunci cepat `jadwal` dan `pj`).
 - `/autorespond add` — Tambah auto-response embed baru (`trigger`, `description`, `title`, `image`, `color`, `match_type`)
 - `/autorespond edit` — Mengubah embed auto-response yang sudah ada (ketik `hapus` pada opsi opsional yang ingin dikosongkan)
@@ -67,7 +84,7 @@ Bot secara otomatis membalas dengan pesan **Embed** ketika kata atau kalimat pem
 
 ---
 
-### 5. 🎉 Welcome Message — *Khusus Administrator*
+### 6. 🎉 Welcome Message — *Khusus Administrator*
 Menyapa anggota baru secara otomatis dengan format dinamis dan mention interaktif saat bergabung ke server.
 - `/welcome set` — Menentukan channel pengiriman sambutan, channel obrolan rujukan, serta template pesan
 - `/welcome test` — Menguji kirim pesan sambutan secara langsung ke channel yang disetel
@@ -83,7 +100,7 @@ Menyapa anggota baru secara otomatis dengan format dinamis dan mention interakti
 
 ---
 
-### 6. 🔒 Private Room / Channel System
+### 7. 🔒 Private Room / Channel System
 Sistem pembuatan channel teks privat sementara menggunakan role terisolasi (`private-room-[number]`).
 - `/create-private-channel [name] [user1] [user2] [user3]` — Membuat channel privat baru dengan nomor role terkecil yang tersedia dan mengundang user yang dipilih
 - `/delete-private-channel` — Menghapus room privat beserta role-nya (dijalankan di dalam channel oleh anggota room/admin)
@@ -91,14 +108,14 @@ Sistem pembuatan channel teks privat sementara menggunakan role terisolasi (`pri
 
 ---
 
-### 7. 🔀 Pengaturan Prefix — *Khusus Administrator*
+### 8. 🔀 Pengaturan Prefix — *Khusus Administrator*
 Mengubah prefix perintah teks secara dinamis per server (default: `!`).
 - `/setprefix prefix:<prefix_baru>`
 - `[prefix]setprefix <prefix_baru>` — Contoh: `!setprefix ?` atau `!setprefix .`
 
 ---
 
-### 8. 📖 Menu Bantuan Interaktif & Utilitas
+### 9. 📖 Menu Bantuan Interaktif & Utilitas
 - `/help` atau `[prefix]help` — Menampilkan menu bantuan multi-halaman per kategori dengan ringkasan kategori di setiap halaman, dropdown menu, dan tombol navigasi
 - `/ping` atau `[prefix]ping` — Mengecek latensi koneksi bot ke Discord Gateway
 - `[prefix]halo` — Menyapa bot *(juga merespons sapaan teks `"halo"` atau `"halo bot"`)*
@@ -114,7 +131,7 @@ Mengubah prefix perintah teks secara dinamis per server (default: `!`).
    - Aktifkan **Public Bot** *(jika ingin bot dapat diundang ke berbagai server lain)*.
    - Aktifkan **Privileged Gateway Intents**:
      - ✅ **Message Content Intent** (Wajib untuk auto-respond & prefix command)
-     - ✅ **Server Members Intent** (Wajib untuk fitur Welcome Message)
+     - ✅ **Server Members Intent** (Wajib untuk fitur Auto-Role & Welcome Message)
    - Klik **Save Changes**.
 3. Masuk ke menu **General Information** dan salin **Application ID** (`CLIENT_ID`).
 4. Masuk ke menu **OAuth2 → URL Generator** untuk membuat link undangan bot:
