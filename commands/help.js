@@ -78,6 +78,7 @@ function buildHelpPages(prefix) {
                     name: 'Hiburan & Perintah Utilitas',
                     value:
                         `• \`/meme [subreddit]\` atau \`${prefix}meme [subreddit]\` — Ambil meme acak dari subreddit Reddit *(contoh: \`memes\`, \`ProgrammerHumor\`, \`engineeringmemes\`)*\n` +
+                        `• \`/saran isi:<pesan> [anonim] [lampiran]\` — Kirim saran secara privat ke kotak saran server\n` +
                         `• \`/ping\` atau \`${prefix}ping\` — Cek latensi dan kecepatan respon bot\n` +
                         `• \`${prefix}halo\` — Sapa bot *(juga merespons sapaan \`halo\` atau \`halo bot\`)*\n` +
                         `• \`/help\` atau \`${prefix}help\` — Menampilkan menu bantuan interaktif ini`
@@ -109,6 +110,7 @@ function buildHelpPages(prefix) {
                     name: 'Moderator & Administrator',
                     value:
                         '• `/wa-update login/set/status/test/enable/disable/logout` — Atur penerus pengumuman WhatsApp server ini\n' +
+                        '• `/kotak-saran set/status/test/enable/disable` — Atur channel tujuan Kotak Saran server\n' +
                         `• \`/autorole\` atau \`${prefix}autorole set/add/remove/status/enable/disable/clear\` — Atur pemberian role otomatis untuk member baru`
                 },
                 {

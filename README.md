@@ -1,6 +1,6 @@
 # TEN A '26 Discord Bot 🤖
 
-Bot Discord multi-server berbasis **Node.js** dan **Discord.js v14** yang awalnya dikembangkan untuk server **TEN A '26** (Teknik Konversi Energi) dan siap di-*self-host* maupun ditambahkan ke berbagai server Discord lain. Dilengkapi asisten tanya jawab berbasis **Google Gemini API** (membaca file lampiran, tautan Google Maps, YouTube, dan Google Drive), pengingat otomatis via DM zona waktu Jakarta (UTC+7), **WhatsApp Community Announcements Bridge per-server**, **Auto-Role**, **Reddit Meme Fetcher**, Auto-Respond Embed, Welcome Message, dan Private Room System.
+Bot Discord multi-server berbasis **Node.js** dan **Discord.js v14** yang awalnya dikembangkan untuk server **TEN A '26** (Teknik Konversi Energi) dan siap di-*self-host* maupun ditambahkan ke berbagai server Discord lain. Dilengkapi asisten tanya jawab berbasis **Google Gemini API** (membaca file lampiran, tautan Google Maps, YouTube, dan Google Drive), pengingat otomatis via DM zona waktu Jakarta (UTC+7), **WhatsApp Community Announcements Bridge per-server**, **Auto-Role**, **Kotak Saran Privat**, **Reddit Meme Fetcher**, Auto-Respond Embed, Welcome Message, dan Private Room System.
 
 ---
 
@@ -74,7 +74,19 @@ Memberikan satu atau beberapa role secara otomatis kepada setiap anggota baru ya
 
 ---
 
-### 5. ⚙️ Auto-Respond (Embed) — *Khusus Administrator*
+### 5. 💡 Kotak Saran Privat (Suggestion Box)
+Sistem pengiriman kritik, saran, dan masukan secara tersembunyi (*ephemeral* — hanya tersedia melalui Slash Command agar input tidak muncul di chat publik) dan diteruskan ke channel pilihan Moderator/Admin (`data/saranConfig.json`), lengkap dengan nomor urut, opsi anonim, lampiran file/gambar, serta reaksi voting otomatis (`👍` / `👎`).
+- **Command Member:**
+  - `/saran isi:<pesan> [anonim] [lampiran]` — Mengirim saran secara privat ke kotak saran server
+- **Command Pengaturan (Khusus Moderator / Administrator):**
+  - `/kotak-saran set channel:<#channel> [izinkan_anonim]` — Menentukan channel tujuan kotak saran dan mengatur izin pengiriman anonim
+  - `/kotak-saran status` — Mengecek status aktif, mode anonim, total saran masuk, dan channel tujuan
+  - `/kotak-saran test` — Mengirim pesan uji coba ke channel kotak saran
+  - `/kotak-saran enable` / `/kotak-saran disable` — Mengaktifkan atau menonaktifkan sementara fitur kotak saran
+
+---
+
+### 6. ⚙️ Auto-Respond (Embed) — *Khusus Administrator*
 Bot secara otomatis membalas dengan pesan **Embed** ketika kata atau kalimat pemicu diketik di chat (misalnya kata kunci cepat `jadwal` dan `pj`).
 - `/autorespond add` — Tambah auto-response embed baru (`trigger`, `description`, `title`, `image`, `color`, `match_type`)
 - `/autorespond edit` — Mengubah embed auto-response yang sudah ada (ketik `hapus` pada opsi opsional yang ingin dikosongkan)
@@ -84,7 +96,7 @@ Bot secara otomatis membalas dengan pesan **Embed** ketika kata atau kalimat pem
 
 ---
 
-### 6. 🎉 Welcome Message — *Khusus Administrator*
+### 7. 🎉 Welcome Message — *Khusus Administrator*
 Menyapa anggota baru secara otomatis dengan format dinamis dan mention interaktif saat bergabung ke server.
 - `/welcome set` — Menentukan channel pengiriman sambutan, channel obrolan rujukan, serta template pesan
 - `/welcome test` — Menguji kirim pesan sambutan secara langsung ke channel yang disetel
@@ -100,7 +112,7 @@ Menyapa anggota baru secara otomatis dengan format dinamis dan mention interakti
 
 ---
 
-### 7. 🔒 Private Room / Channel System
+### 8. 🔒 Private Room / Channel System
 Sistem pembuatan channel teks privat sementara menggunakan role terisolasi (`private-room-[number]`).
 - `/create-private-channel [name] [user1] [user2] [user3]` — Membuat channel privat baru dengan nomor role terkecil yang tersedia dan mengundang user yang dipilih
 - `/delete-private-channel` — Menghapus room privat beserta role-nya (dijalankan di dalam channel oleh anggota room/admin)
@@ -108,14 +120,14 @@ Sistem pembuatan channel teks privat sementara menggunakan role terisolasi (`pri
 
 ---
 
-### 8. 🔀 Pengaturan Prefix — *Khusus Administrator*
+### 9. 🔀 Pengaturan Prefix — *Khusus Administrator*
 Mengubah prefix perintah teks secara dinamis per server (default: `!`).
 - `/setprefix prefix:<prefix_baru>`
 - `[prefix]setprefix <prefix_baru>` — Contoh: `!setprefix ?` atau `!setprefix .`
 
 ---
 
-### 9. 😂 Reddit Meme Fetcher (SFW)
+### 10. 😂 Reddit Meme Fetcher (SFW)
 Mengambil gambar meme secara acak dari berbagai subreddit Reddit dengan filter konten aman (SFW), dilengkapi autocomplete subreddit populer serta tombol interaktif **Meme Berikutnya**.
 - **Slash Command:**
   - `/meme [subreddit]` — Mengambil meme acak atau dari subreddit tertentu *(contoh: `memes`, `ProgrammerHumor`, `engineeringmemes`, `indowibu`)*
@@ -124,7 +136,7 @@ Mengambil gambar meme secara acak dari berbagai subreddit Reddit dengan filter k
 
 ---
 
-### 10. 📖 Menu Bantuan Interaktif & Utilitas
+### 11. 📖 Menu Bantuan Interaktif & Utilitas
 - `/help` atau `[prefix]help` — Menampilkan menu bantuan multi-halaman per kategori dengan ringkasan kategori di setiap halaman, dropdown menu, dan tombol navigasi
 - `/ping` atau `[prefix]ping` — Mengecek latensi koneksi bot ke Discord Gateway
 - `[prefix]halo` — Menyapa bot *(juga merespons sapaan teks `"halo"` atau `"halo bot"`)*
@@ -145,7 +157,7 @@ Mengambil gambar meme secara acak dari berbagai subreddit Reddit dengan filter k
 3. Masuk ke menu **General Information** dan salin **Application ID** (`CLIENT_ID`).
 4. Masuk ke menu **OAuth2 → URL Generator** untuk membuat link undangan bot:
    - Centang **Scopes**: `bot` dan `applications.commands`.
-   - Centang **Bot Permissions**: `View Channels`, `Send Messages`, `Send Messages in Threads`, `Embed Links`, `Attach Files`, `Read Message History`, `Manage Roles`, dan `Manage Channels`.
+   - Centang **Bot Permissions**: `View Channels`, `Send Messages`, `Send Messages in Threads`, `Embed Links`, `Attach Files`, `Read Message History`, `Add Reactions`, `Manage Roles`, dan `Manage Channels`.
 
 ### 2. Clone Repository & Install Dependencies
 ```bash
