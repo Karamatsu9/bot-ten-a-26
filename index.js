@@ -11,6 +11,7 @@ const {
     PermissionFlagsBits
 } = require('discord.js');
 const storage = require('./utils/storage');
+const { sendPaginatedHelp } = require('./commands/help');
 const { askGemini, splitMessage } = require('./utils/gemini');
 const { 
     parseTimeWIB, 
@@ -342,22 +343,9 @@ client.on('messageCreate', async (message) => {
     }
 
     // 7. Perintah dengan prefix: help
+    // 7. Perintah dengan prefix: help
     if (content.startsWith(`${prefix}help`)) {
-        const helpEmbed = new EmbedBuilder()
-            .setColor(0x00AE86)
-            .setTitle(`📖 Menu Bantuan (Prefix: ${prefix})`)
-            .setDescription(`Prefix server ini: \`${prefix}\`\nBerikut perintah yang tersedia:`)
-            .addFields(
-                { name: `✨ ${prefix}ask <pertanyaan> atau ${prefix} <pertanyaan>`, value: 'Tanya apa saja, kirim file, atau tempel link YouTube/Google Drive!' },
-                { name: `⏰ ${prefix}remind <waktu> | <pesan>`, value: `Atur pengingat otomatis via DM zona waktu Jakarta / UTC+7 (ketik \`${prefix}remind\` untuk panduan lengkap)` },
-                { name: `⚙️ ${prefix}setprefix <prefix_baru>`, value: 'Mengubah prefix bot (Khusus Administrator)' },
-                { name: `🏓 ${prefix}ping`, value: 'Mengecek respon dan latensi bot' },
-                { name: `👋 ${prefix}halo`, value: 'Menyapa bot' },
-                { name: 'Slash Commands', value: 'Gunakan `/help` atau `/remind` untuk fitur lengkap termasuk pengaturan Auto-Response dan Welcome Message.' }
-            )
-            .setFooter({ text: `Diminta oleh ${message.author.username}` });
-
-        return message.reply({ embeds: [helpEmbed] });
+        return sendPaginatedHelp(message, message.guild?.id, message.author, client, false);
     }
 });
 
