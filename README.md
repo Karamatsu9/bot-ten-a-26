@@ -1,13 +1,13 @@
 # TEN A '26 Discord Bot 🤖
 
-Bot Discord khusus untuk server **TEN A '26** (Teknik Konversi Energi) berbasis **Node.js** dan **Discord.js v14**. Dilengkapi asisten tanya jawab berbasis Google Gemini API (mendukung pembacaan lampiran file, link YouTube, dan Google Drive), pengingat otomatis via DM zona waktu Jakarta (UTC+7), penerus pengumuman otomatis dari Komunitas WhatsApp kelas, Auto-Respond Embed, Welcome Message, dan Private Channel.
+Bot Discord multi-server berbasis **Node.js** dan **Discord.js v14** yang awalnya dikembangkan untuk server **TEN A '26** (Teknik Konversi Energi) dan siap di-*self-host* maupun ditambahkan ke berbagai server Discord lain. Dilengkapi asisten tanya jawab berbasis **Google Gemini API** (membaca file lampiran, link YouTube, dan Google Drive), pengingat otomatis via DM zona waktu Jakarta (UTC+7), **WhatsApp Community Announcements Bridge per-server**, Auto-Respond Embed, Welcome Message, dan Private Room System.
 
 ---
 
 ## 📋 Daftar Lengkap Fitur & Command
 
 ### 1. 💬 Tanya Jawab, Analisis File & Link Google (Google Gemini API)
-Asisten khusus server **TEN A '26** untuk diskusi akademik dan pertanyaan umum. Dilengkapi proteksi identitas permanen, pemecahan pesan otomatis (> 2000 karakter), konversi simbol matematika/LaTeX ke karakter Unicode rapi, sapaan otomatis (`{user}`), serta pembacaan file dan tautan.
+Asisten diskusi akademik dan pertanyaan umum dengan proteksi identitas permanen, pemecahan pesan otomatis (> 2000 karakter), konversi simbol matematika/LaTeX ke karakter Unicode rapi, mention user otomatis (`<@userId>`), serta pembacaan file dan tautan.
 - **Slash Command:**
   - `/ask [question] [file]` — Bertanya ke bot dan/atau melampirkan file untuk dibaca, dirangkum, atau dianalisis
 - **Prefix Command:**
@@ -44,10 +44,16 @@ Sistem pengingat berbasis zona waktu **Jakarta (UTC+7)** yang tersimpan secara p
 
 ---
 
-### 3. 📢 WhatsApp Community Announcements Bridge
-Meneruskan pesan dan lampiran file (dokumen, gambar, audio, video hingga 10 MB) secara *real-time* dari channel **Announcements** di Komunitas WhatsApp kelas ke channel pengumuman Discord.
-- Menggunakan filter ketat (`isCommunityAnnounce === true` dan `WA_ANNOUNCEMENT_JID`) sehingga hanya membaca pengumuman resmi komunitas dan mengabaikan grup obrolan biasa maupun chat pribadi.
-- Menggunakan sesi multi-device `@whiskeysockets/baileys` yang tersimpan lokal di folder `wa_auth/`.
+### 3. 📢 WhatsApp Community Announcements Bridge (Multi-Server)
+Meneruskan pesan dan lampiran file (dokumen, gambar, audio, video hingga 10 MB) secara *real-time* dari channel **Announcements** di Komunitas WhatsApp ke channel Discord tujuan. Setiap server memiliki sesi login (`wa_auth/<guildId>/`) dan pengaturan (`data/waConfig.json`) yang terisolasi secara independen.
+- Menggunakan filter ketat (`isCommunityAnnounce === true` dan JID grup terpilih) sehingga hanya membaca pengumuman resmi komunitas dan mengabaikan grup obrolan biasa maupun chat pribadi.
+- **Command Pengaturan (Khusus Moderator / Administrator):**
+  - `/wa-update login [nomor_wa]` — Menautkan akun WhatsApp khusus server ini lewat gambar **QR Code** privat atau **Kode Pairing 8 digit** langsung di Discord
+  - `/wa-update set channel:<#channel> jid:<grup_wa>` — Menentukan channel Discord tujuan dan memilih grup Announcements WA *(dilengkapi dropdown autocomplete)*
+  - `/wa-update status` — Mengecek status koneksi WhatsApp, channel tujuan, dan grup Announcements yang terdeteksi
+  - `/wa-update test` — Mengirim pesan uji coba ke channel pengumuman yang telah disetel
+  - `/wa-update enable` / `/wa-update disable` — Mengaktifkan atau menjeda penerusan pesan sementara
+  - `/wa-update logout` — Memutuskan tautan akun WhatsApp dan menghapus kredensial sesi server ini
 
 ---
 
@@ -92,37 +98,31 @@ Mengubah prefix perintah teks secara dinamis per server (default: `!`).
 
 ---
 
-### 8. 🤖 Perintah Bawaan & Utilitas
-- `/help` atau `[prefix]help` — Menampilkan menu bantuan perintah
+### 8. 📖 Menu Bantuan Interaktif & Utilitas
+- `/help` atau `[prefix]help` — Menampilkan menu bantuan multi-halaman per kategori dengan ringkasan kategori di setiap halaman, dropdown menu, dan tombol navigasi
 - `/ping` atau `[prefix]ping` — Mengecek latensi koneksi bot ke Discord Gateway
 - `[prefix]halo` — Menyapa bot *(juga merespons sapaan teks `"halo"` atau `"halo bot"`)*
 
 ---
 
-## 🛠️ Langkah Pengaturan & Instalasi
+## 🛠️ Langkah Pengaturan & Instalasi (Self-Hosting)
 
 ### 1. Konfigurasi di Discord Developer Portal
-1. Buka [Discord Developer Portal](https://discord.com/developers/applications) dan pilih aplikasi bot kamu.
+1. Buka [Discord Developer Portal](https://discord.com/developers/applications) dan buat/pilih aplikasi bot kamu.
 2. Masuk ke menu **Bot**:
    - Klik **Reset Token** dan salin token bot.
+   - Aktifkan **Public Bot** *(jika ingin bot dapat diundang ke berbagai server lain)*.
    - Aktifkan **Privileged Gateway Intents**:
      - ✅ **Message Content Intent** (Wajib untuk auto-respond & prefix command)
      - ✅ **Server Members Intent** (Wajib untuk fitur Welcome Message)
    - Klik **Save Changes**.
 3. Masuk ke menu **General Information** dan salin **Application ID** (`CLIENT_ID`).
+4. Masuk ke menu **OAuth2 → URL Generator** untuk membuat link undangan bot:
+   - Centang **Scopes**: `bot` dan `applications.commands`.
+   - Centang **Bot Permissions**: `View Channels`, `Send Messages`, `Send Messages in Threads`, `Embed Links`, `Attach Files`, `Read Message History`, `Manage Roles`, dan `Manage Channels`.
 
-### 2. Isi File `.env`
-Buat atau buka file `.env` di folder utama proyek dan isi konfigurasi berikut:
-```env
-DISCORD_TOKEN=masukkan_token_bot_kamu_di_sini
-CLIENT_ID=masukkan_application_id_di_sini
-GUILD_ID=opsional_masukkan_id_server_discord_kamu
-
-# Dapatkan gratis di [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-GEMINI_API_KEY=masukkan_api_key_gemini_di_sini
-# Opsional: tentukan model utama Gemini
-GEMINI_MODEL=gemini-2.5-flash
-
-# Konfigurasi WhatsApp Announcements Bridge
-WA_DISCORD_CHANNEL_ID=id_channel_discord_tujuan_pengumuman
-WA_ANNOUNCEMENT_JID=jid_grup_announcements_whatsapp@g.us
+### 2. Clone Repository & Install Dependencies
+```bash
+git clone <url-repository-kamu>
+cd ten-a-bot-discord
+npm install
