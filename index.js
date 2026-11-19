@@ -23,6 +23,7 @@ const {
 } = require('./utils/reminderManager');
 const { startWhatsAppBridge } = require('./utils/waBridge');
 const { applyAutoRoleOnJoin, handleAutoRolePrefix } = require('./utils/autoroleManager');
+const { sendMemeReply } = require('./utils/memeFetcher');
 
 // Validasi Token
 if (!process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN === 'your_bot_token_here') {
@@ -354,6 +355,12 @@ client.on('messageCreate', async (message) => {
         return message.reply(`Halo <@${message.author.id}>! Ada yang bisa kubantu? Ketik \`${prefix}ask <pertanyaan>\` untuk bertanya, atau \`${prefix}help\` untuk melihat daftar perintah.`);
     }
 
+    // 5b. Perintah Meme Reddit: [prefix]meme [subreddit]
+    if (contentLower === `${prefix}meme` || contentLower.startsWith(`${prefix}meme `)) {
+        const subArg = content.slice(prefix.length + 'meme'.length).trim();
+        return sendMemeReply(message, subArg, message.author.id, false);
+    }
+
     // 6. Perintah dengan prefix: ping
     if (content.startsWith(`${prefix}ping`)) {
         const ping = client.ws.ping;
@@ -370,7 +377,7 @@ client.on('messageCreate', async (message) => {
 client.on('guildMemberAdd', async (member) => {
     try {
         await applyAutoRoleOnJoin(member);
-        
+
         const config = storage.getWelcomeConfig(member.guild.id);
         
         // Cek apakah fitur diaktifkan dan channel telah disetel

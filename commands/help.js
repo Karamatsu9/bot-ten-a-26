@@ -63,10 +63,10 @@ function buildHelpPages(prefix) {
             ]
         },
         {
-            title: '📌 Kata Kunci Cepat & Utilitas',
-            shortLabel: 'Kata Kunci Cepat & Utilitas',
+            title: '📌 Kata Kunci Cepat, Meme & Utilitas',
+            shortLabel: 'Kata Kunci, Meme & Utilitas',
             emoji: '📌',
-            summary: 'Info jadwal, daftar PJ mata kuliah, ping, & perintah dasar',
+            summary: 'Info jadwal, daftar PJ, meme Reddit, ping, & perintah dasar',
             fields: [
                 {
                     name: 'Kata Kunci Tanpa Prefix (Ketik Langsung di Chat)',
@@ -75,8 +75,9 @@ function buildHelpPages(prefix) {
                         '• `pj` — Melihat daftar PJ mata kuliah'
                 },
                 {
-                    name: 'Perintah Utilitas',
+                    name: 'Hiburan & Perintah Utilitas',
                     value:
+                        `• \`/meme [subreddit]\` atau \`${prefix}meme [subreddit]\` — Ambil meme acak dari subreddit Reddit *(contoh: \`memes\`, \`ProgrammerHumor\`, \`engineeringmemes\`)*\n` +
                         `• \`/ping\` atau \`${prefix}ping\` — Cek latensi dan kecepatan respon bot\n` +
                         `• \`${prefix}halo\` — Sapa bot *(juga merespons sapaan \`halo\` atau \`halo bot\`)*\n` +
                         `• \`/help\` atau \`${prefix}help\` — Menampilkan menu bantuan interaktif ini`
@@ -102,13 +103,8 @@ function buildHelpPages(prefix) {
             title: '⚙️ Pengaturan Moderator & Admin',
             shortLabel: 'Pengaturan Moderator & Admin',
             emoji: '⚙️',
-            summary: 'Konfigurasi WA update, prefix, auto-respond, & welcome message',
+            summary: 'Konfigurasi WA update, autorole, prefix, auto-respond, & welcome',
             fields: [
-                {
-                    name: 'Moderator & Administrator',
-                    value:
-                        '• `/wa-update set/status/test/enable/disable` — Atur channel penerus pengumuman & file dari Komunitas WhatsApp kelas'
-                },
                 {
                     name: 'Moderator & Administrator',
                     value:

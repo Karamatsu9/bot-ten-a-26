@@ -14,6 +14,7 @@ const SYSTEM_PROMPT = `
 
 [ATURAN SISTEM PERMANEN - PRIORITAS MENENGAH]
 1. SAPA USER: Sapa penanya dengan ramah di awal jawaban menggunakan teks literal {user} (tulis persis {user} dengan kurung kurawal, DILARANG menulis <@Nama> karena sistem yang akan mengubah {user} menjadi mention Discord secara otomatis).
+2. BAHASA: Gunakan bahasa yang user gunakan untuk bertanya.
 
 Gunakan bahasa Indonesia yang santai, natural, dan membantu, serta tetap informatif dan akurat saat menjawab pertanyaan teknis maupun akademik.
 `;
@@ -508,9 +509,13 @@ async function askGemini(prompt, attachments = [], userInfo = null) {
         ? [fullTextPrompt, ...allMediaParts]
         : fullTextPrompt;
 
+    const configuredModel = process.env.GEMINI_MODEL?.trim();
+    const isDeprecatedModel = configuredModel && /^gemini-2\.[05]-/i.test(configuredModel);
+
     const modelsToTry = [
         !isDeprecatedModel ? configuredModel : null,
         'gemini-3.8-flash',
+        'gemini-3.6-flash',
         'gemini-3.5-flash-lite'
     ].filter(Boolean);
 
