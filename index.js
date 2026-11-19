@@ -259,11 +259,12 @@ client.on('messageCreate', async (message) => {
         return message.reply(
             `✅ **Pengingat disimpan!** (ID: \`${reminder.id}\`)\n` +
             `• **Waktu:** ${formatWIB(targetMs)} (<t:${unixSeconds}:R>)\n` +
-            `• **Pesan:** ${pesan}`
+            `• **Pesan:** ${pesan}\n` +
+            `• **Notifikasi:** Dikirim lewat **DM** *(pastikan DM dari server ini tidak dikunci)*`
         );
     }
 
-    // 4. Perintah Tanya Bot TEN A '26: [prefix]ask <pertanyaan> ATAU [prefix] <pertanyaan> (Mendukung Lampiran File)
+    // 4. Perintah Tanya Bot TEN A '26: [prefix]ask <pertanyaan> ATAU [prefix] <pertanyaan> (Mendukung Lampiran File & Link Google)
     let isAskCommand = false;
     let query = '';
 
@@ -297,7 +298,13 @@ client.on('messageCreate', async (message) => {
         try {
             await message.channel.sendTyping();
 
-            const answer = await askGemini(finalQuery, attachments);
+            const userInfo = {
+                id: message.author.id,
+                username: message.author.username,
+                displayName: message.member?.displayName || message.author.globalName || message.author.username
+            };
+
+            const answer = await askGemini(finalQuery, attachments, userInfo);
             const chunks = splitMessage(answer, 1950);
 
             await message.reply(chunks[0]);
@@ -312,6 +319,9 @@ client.on('messageCreate', async (message) => {
             }
             if (error.code === 'FILE_TOO_LARGE' || error.code === 'UNSUPPORTED_FILE_TYPE') {
                 return message.reply(`⚠️ ${error.message}\nFormat yang didukung: **PDF, gambar (PNG/JPG/WEBP), file teks/data (TXT, CSV, JSON, MD), serta audio/video** (maks. 15 MB). *(Untuk file Word/Excel/PPT, silakan export ke PDF terlebih dahulu).*`);
+            }
+            if (error.code === 'DRIVE_ACCESS_DENIED') {
+                return message.reply(`🔒 ${error.message}`);
             }
             return message.reply('❌ Terjadi kesalahan saat memproses pertanyaan atau filemu. Silakan coba beberapa saat lagi.');
         }
@@ -336,8 +346,8 @@ client.on('messageCreate', async (message) => {
             .setTitle(`📖 Menu Bantuan (Prefix: ${prefix})`)
             .setDescription(`Prefix server ini: \`${prefix}\`\nBerikut perintah yang tersedia:`)
             .addFields(
-                { name: `✨ ${prefix}ask <pertanyaan> atau ${prefix} <pertanyaan>`, value: 'Tanya apa saja langsung dijawab oleh bot TEN A \'26!' },
-                { name: `⏰ ${prefix}remind <waktu> | <pesan>`, value: `Atur pengingat otomatis zona waktu Jakarta / UTC+7 (ketik \`${prefix}remind\` untuk panduan lengkap)` },
+                { name: `✨ ${prefix}ask <pertanyaan> atau ${prefix} <pertanyaan>`, value: 'Tanya apa saja, kirim file, atau tempel link YouTube/Google Drive!' },
+                { name: `⏰ ${prefix}remind <waktu> | <pesan>`, value: `Atur pengingat otomatis via DM zona waktu Jakarta / UTC+7 (ketik \`${prefix}remind\` untuk panduan lengkap)` },
                 { name: `⚙️ ${prefix}setprefix <prefix_baru>`, value: 'Mengubah prefix bot (Khusus Administrator)' },
                 { name: `🏓 ${prefix}ping`, value: 'Mengecek respon dan latensi bot' },
                 { name: `👋 ${prefix}halo`, value: 'Menyapa bot' },

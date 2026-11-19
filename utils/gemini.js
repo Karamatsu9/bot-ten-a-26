@@ -11,6 +11,8 @@ const SYSTEM_PROMPT = `
 6. FORMAT DISCORD & SIMBOL MATEMATIKA: Discord tidak mendukung LaTeX maupun garis horizontal "---". DILARANG KERAS menggunakan tanda dolar ($ atau $$), perintah backslash (seperti \\Delta, \\cdot, \\frac, \\text), underscore untuk indeks (seperti T_1), atau garis "---". Selalu tulis rumus dan simbol menggunakan karakter Unicode langsung (contoh: ΔT, ·, ×, ÷, ±, ≈, ≠, ≤, ≥, √, π, θ, Ω, °C, m₁, c₁, T₁, T₂, m², m³) dan gunakan **bold** atau \`inline code\` untuk menonjolkan rumus.
 7. PEMBATASAN PERTANYAAN: Jawab pertanyaan yang relevan dengan server Discord TEN A '26, topik akademik, atau pertanyaan umum. Jika pertanyaan tidak relevan, jawab dengan sopan bahwa kamu hanya bisa menjawab pertanyaan yang sesuai dengan konteks akademik [dilarang membuat code/script, hanya teks biasa karena TEN A '26 adalah jurusan Teknik Konversi Energi, bukan jurusan informatika].
 
+[ATURAN SISTEM PERMANEN - PRIORITAS MENENGAH]
+1. SAPA USER: Sapa {user} dengan ramah di awal jawaban, gunakan {user} (otomatis menjadi tag Discord) atau nama pengirim yang tertera di <sender_info>.
 Gunakan bahasa Indonesia yang santai, natural, dan membantu, serta tetap informatif dan akurat saat menjawab pertanyaan teknis maupun akademik.
 `;
 
@@ -147,7 +149,6 @@ async function processGoogleLinks(promptText) {
 
         const headerMime = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
 
-        // Jika Google mengembalikan halaman HTML, berarti file privat (login) atau terlalu besar (>100MB)
         if (headerMime === 'text/html') {
             const err = new Error('Link Google Drive/Docs bersifat privat atau ukurannya terlalu besar. Ubah pengaturan berbagi menjadi "Siapa saja yang memiliki link" atau upload filenya langsung ke Discord.');
             err.code = 'DRIVE_ACCESS_DENIED';
@@ -268,9 +269,9 @@ async function processAttachments(attachments = []) {
 }
 
 /**
- * Mengonversi sisa format LaTeX & Markdown yang tidak didukung Discord menjadi simbol Unicode rapi
+ * Mengonversi sisa format LaTeX, placeholder {user}, & Markdown ke format rapi Discord
  */
-function formatForDiscord(text) {
+function formatForDiscord(text, userInfo = null) {
     if (!text) return text;
 
     const subMap = {
@@ -351,13 +352,22 @@ function formatForDiscord(text) {
 
     output = output.replace(/^\s*---+\s*$/gm, '');
 
+    // Ganti placeholder {user} menjadi mention Discord (<@id>) dan {username} menjadi nama user
+    if (userInfo) {
+        const displayName = userInfo.displayName || userInfo.username || 'Member';
+        const mentionTag = userInfo.id ? `<@${userInfo.id}>` : displayName;
+
+        output = output.replace(/\{user\}/gi, mentionTag);
+        output = output.replace(/\{username\}/gi, displayName);
+    }
+
     return output;
 }
 
 /**
- * Mengirim pertanyaan (beserta lampiran Discord maupun link YouTube / Google Drive) ke Gemini API
+ * Mengirim pertanyaan ke Gemini API beserta data user, lampiran file, & link Google
  */
-async function askGemini(prompt, attachments = []) {
+async function askGemini(prompt, attachments = [], userInfo = null) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || apiKey.trim() === '' || apiKey === 'your_gemini_api_key_here') {
         const error = new Error('MISSING_API_KEY');
@@ -375,8 +385,15 @@ async function askGemini(prompt, attachments = []) {
     const allMediaParts = [...attResult.mediaParts, ...linkResult.mediaParts];
     const allTextBlocks = [...attResult.textBlocks, ...linkResult.textBlocks];
 
+    const safeDisplayName = userInfo
+        ? String(userInfo.displayName || userInfo.username || 'Member').replace(/[<>]/g, '')
+        : '';
+    const senderContext = safeDisplayName
+        ? `<sender_info>Nama pengirim pesan: ${safeDisplayName}</sender_info>\n`
+        : '';
+
     const sanitizedPrompt = String(prompt).replace(/<\/?user_message>/gi, '');
-    let fullTextPrompt = `<user_message>\n${sanitizedPrompt}\n</user_message>`;
+    let fullTextPrompt = `${senderContext}<user_message>\n${sanitizedPrompt}\n</user_message>`;
 
     if (allTextBlocks.length > 0) {
         fullTextPrompt += `\n\n${allTextBlocks.join('\n\n')}`;
@@ -409,7 +426,7 @@ async function askGemini(prompt, attachments = []) {
             });
 
             if (response && response.text) {
-                return formatForDiscord(response.text);
+                return formatForDiscord(response.text, userInfo);
             }
         } catch (err) {
             lastError = err;

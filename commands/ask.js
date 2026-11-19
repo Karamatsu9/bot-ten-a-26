@@ -33,7 +33,13 @@ module.exports = {
         await interaction.deferReply();
 
         try {
-            const answer = await askGemini(question, attachments);
+            const userInfo = {
+                id: interaction.user.id,
+                username: interaction.user.username,
+                displayName: interaction.member?.displayName || interaction.user.globalName || interaction.user.username
+            };
+
+            const answer = await askGemini(question, attachments, userInfo);
             const chunks = splitMessage(answer, 1950);
 
             const fileBadge = attachment ? `\n> 📎 **Lampiran:** \`${attachment.name}\`` : '';
@@ -59,7 +65,7 @@ module.exports = {
                 });
             }
             if (error.code === 'DRIVE_ACCESS_DENIED') {
-                return interaction.editReply({ content: `🔒 ${error.message}` }); // atau message.reply(...) di index.js
+                return interaction.editReply({ content: `🔒 ${error.message}` });
             }
 
             return interaction.editReply({
