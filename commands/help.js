@@ -148,7 +148,7 @@ async function sendPaginatedHelp(target, guildId, user, client, isInteraction = 
             .setColor(0x5865F2)
             .setTitle(`📖 Menu Bantuan Bot TEN A '26 • Halaman ${pageIndex + 1}/${pages.length}`)
             .setDescription(
-                `Prefix saat ini: \`${prefix}\` • Gunakan channel <#1572664316811812875> untuk memakai bot.\n\n` +
+                `Prefix saat ini: \`${prefix}\`\n\n` +
                 `**📑 Daftar Kategori Halaman:**\n${categoryOverview}`
             )
             .addFields(activePage.fields)
