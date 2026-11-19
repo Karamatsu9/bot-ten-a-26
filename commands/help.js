@@ -20,8 +20,8 @@ module.exports = {
                 { 
                     name: '💬 Tanya Jawab & Analisis File', 
                     value: 
-                        `\`/ask question:<pertanyaan> file:<lampiran>\` — Tanya materi atau minta bot membaca/merangkum file *(PDF, gambar, TXT, CSV, JSON, dll.)*\n` +
-                        `\`${prefix}ask <pertanyaan>\` atau \`${prefix} <pertanyaan>\` — Versi prefix *(bisa langsung lampirkan file atau reply pesan yang berisi file)*`
+                        `\`/ask question:<pertanyaan> file:<lampiran>\` — Tanya materi, baca file *(PDF, gambar, TXT, CSV, JSON)*, atau rangkum link YouTube & Google Drive\n` +
+                        `\`${prefix}ask <pertanyaan>\` atau \`${prefix} <pertanyaan>\` — Versi prefix *(bisa lampirkan file, tempel link, atau reply pesan berisi file)*`
                 },
                 { 
                     name: '⏰ Reminder Otomatis (DM • WIB / UTC+7)', 
@@ -48,11 +48,12 @@ module.exports = {
                         '`/set-private-category` — Atur kategori Discord tempat private channel dibuat *(Moderator/Admin)*' 
                 },
                 { 
-                    name: '⚙️ Pengaturan Admin (Khusus Administrator)', 
+                    name: '⚙️ Pengaturan Moderator & Admin', 
                     value: 
-                        `\`/setprefix\` atau \`${prefix}setprefix <prefix_baru>\` — Ubah prefix bot\n` +
-                        `\`/autorespond add/edit/list/remove/clear\` — Kelola auto-response embed & gambar\n` +
-                        `\`/welcome set/test/status/disable\` — Kelola pesan sambutan member baru` 
+                        `\`/wa-update set/status/test/enable/disable\` — Atur channel penerus pengumuman WhatsApp *(Moderator/Admin)*\n` +
+                        `\`/setprefix\` atau \`${prefix}setprefix <prefix_baru>\` — Ubah prefix bot *(Admin)*\n` +
+                        `\`/autorespond add/edit/list/remove/clear\` — Kelola auto-response embed & gambar *(Admin)*\n` +
+                        `\`/welcome set/test/status/disable\` — Kelola pesan sambutan member baru *(Admin)*` 
                 }
             )
             .setFooter({ text: 'Bot Khusus Server TEN A \'26', iconURL: interaction.client.user.displayAvatarURL() });
