@@ -47,6 +47,162 @@ const SUPPORTED_BINARY_MIMES = new Set([
     'video/mp4', 'video/mpeg', 'video/mov', 'video/avi', 'video/webm', 'video/3gpp'
 ]);
 
+function detectMimeFromMagicBytes(buffer) {
+    if (!buffer || buffer.length < 4) return null;
+    if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
+        return 'application/pdf';
+    }
+    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+        return 'image/png';
+    }
+    if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+        return 'image/jpeg';
+    }
+    if (buffer.length >= 12 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP') {
+        return 'image/webp';
+    }
+    return null;
+}
+
+function extractFilenameFromHeader(disposition, fallbackName) {
+    if (!disposition) return fallbackName;
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8Match) {
+        try {
+            return decodeURIComponent(utf8Match[1].trim());
+        } catch {
+            return utf8Match[1].trim();
+        }
+    }
+    const asciiMatch = disposition.match(/filename="?([^";]+)"?/i);
+    return asciiMatch ? asciiMatch[1].trim() : fallbackName;
+}
+
+/**
+ * Mendeteksi dan memproses link YouTube serta link publik Google Drive / Docs / Sheets / Slides
+ */
+async function processGoogleLinks(promptText) {
+    const mediaParts = [];
+    const textBlocks = [];
+    const seenUrls = new Set();
+
+    const urlMatches = String(promptText).match(/https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi) || [];
+
+    for (const rawUrl of urlMatches) {
+        const cleanUrl = rawUrl.replace(/[.,)!?]+$/, '');
+        if (seenUrls.has(cleanUrl)) continue;
+        seenUrls.add(cleanUrl);
+
+        // 1. Cek Link YouTube (watch, youtu.be, shorts, live)
+        const ytMatch = cleanUrl.match(
+            /(?:youtube\.com\/(?:watch\?(?:[^#\s]*&)?v=|shorts\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i
+        );
+        if (ytMatch) {
+            const videoId = ytMatch[1];
+            mediaParts.push({
+                fileData: {
+                    fileUri: `https://www.youtube.com/watch?v=${videoId}`
+                }
+            });
+            continue;
+        }
+
+        // 2. Cek Link Google Docs / Sheets / Slides / Drive
+        let downloadUrl = null;
+        let defaultName = 'google_file';
+        let forcedMime = null;
+
+        const docsMatch = cleanUrl.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/i);
+        const sheetsMatch = cleanUrl.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/i);
+        const slidesMatch = cleanUrl.match(/docs\.google\.com\/presentation\/d\/([a-zA-Z0-9_-]+)/i);
+        const driveFileMatch =
+            cleanUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/i) ||
+            cleanUrl.match(/drive\.google\.com\/(?:open|uc)\?(?:[^#\s]*&)?id=([a-zA-Z0-9_-]+)/i);
+
+        if (docsMatch) {
+            downloadUrl = `https://docs.google.com/document/d/${docsMatch[1]}/export?format=pdf`;
+            defaultName = `Google_Docs_${docsMatch[1]}.pdf`;
+            forcedMime = 'application/pdf';
+        } else if (sheetsMatch) {
+            downloadUrl = `https://docs.google.com/spreadsheets/d/${sheetsMatch[1]}/export?format=csv`;
+            defaultName = `Google_Sheets_${sheetsMatch[1]}.csv`;
+            forcedMime = 'text/csv';
+        } else if (slidesMatch) {
+            downloadUrl = `https://docs.google.com/presentation/d/${slidesMatch[1]}/export/pdf`;
+            defaultName = `Google_Slides_${slidesMatch[1]}.pdf`;
+            forcedMime = 'application/pdf';
+        } else if (driveFileMatch) {
+            downloadUrl = `https://drive.google.com/uc?export=download&id=${driveFileMatch[1]}`;
+            defaultName = `Google_Drive_${driveFileMatch[1]}`;
+        }
+
+        if (!downloadUrl) continue;
+
+        const res = await fetch(downloadUrl);
+        if (!res.ok) {
+            const err = new Error('Link Google Drive/Docs tidak bisa diakses. Pastikan akses berbagi sudah diatur ke "Siapa saja yang memiliki link (Anyone with the link)".');
+            err.code = 'DRIVE_ACCESS_DENIED';
+            throw err;
+        }
+
+        const headerMime = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+
+        // Jika Google mengembalikan halaman HTML, berarti file privat (login) atau terlalu besar (>100MB)
+        if (headerMime === 'text/html') {
+            const err = new Error('Link Google Drive/Docs bersifat privat atau ukurannya terlalu besar. Ubah pengaturan berbagi menjadi "Siapa saja yang memiliki link" atau upload filenya langsung ke Discord.');
+            err.code = 'DRIVE_ACCESS_DENIED';
+            throw err;
+        }
+
+        const arrayBuffer = await res.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        if (buffer.length > MAX_FILE_SIZE_BYTES) {
+            const err = new Error('File dari Google Drive melebihi batas maksimal 15 MB.');
+            err.code = 'FILE_TOO_LARGE';
+            throw err;
+        }
+
+        const fileName = extractFilenameFromHeader(res.headers.get('content-disposition'), defaultName);
+        const ext = path.extname(fileName).toLowerCase();
+        const resolvedMime =
+            forcedMime ||
+            EXT_TO_MIME[ext] ||
+            (headerMime !== 'application/octet-stream' ? headerMime : null) ||
+            detectMimeFromMagicBytes(buffer) ||
+            '';
+
+        const isTextFile =
+            TEXT_EXTENSIONS.has(ext) ||
+            resolvedMime.startsWith('text/') ||
+            resolvedMime === 'application/json' ||
+            resolvedMime === 'application/xml';
+
+        if (isTextFile) {
+            let textContent = buffer.toString('utf8');
+            if (textContent.length > 100000) {
+                textContent = textContent.slice(0, 100000) + '\n... [Isi file dipotong karena terlalu panjang]';
+            }
+            const sanitizedText = textContent.replace(/<\/?attached_file[^>]*>/gi, '');
+            textBlocks.push(`<attached_file name="${fileName}">\n${sanitizedText}\n</attached_file>`);
+        } else if (SUPPORTED_BINARY_MIMES.has(resolvedMime)) {
+            const finalMime = resolvedMime === 'audio/mpeg' ? 'audio/mp3' : resolvedMime;
+            mediaParts.push({
+                inlineData: {
+                    data: buffer.toString('base64'),
+                    mimeType: finalMime
+                }
+            });
+        } else {
+            const err = new Error(`Format file dari link Google Drive ("${fileName}") belum didukung. Export ke PDF terlebih dahulu.`);
+            err.code = 'UNSUPPORTED_FILE_TYPE';
+            throw err;
+        }
+    }
+
+    return { mediaParts, textBlocks };
+}
+
 /**
  * Mengunduh dan mengonversi lampiran Discord agar bisa dibaca Gemini API
  */
@@ -113,8 +269,6 @@ async function processAttachments(attachments = []) {
 
 /**
  * Mengonversi sisa format LaTeX & Markdown yang tidak didukung Discord menjadi simbol Unicode rapi
- * @param {string} text Teks mentah dari Gemini
- * @returns {string} Teks yang siap dirender di Discord
  */
 function formatForDiscord(text) {
     if (!text) return text;
@@ -201,10 +355,7 @@ function formatForDiscord(text) {
 }
 
 /**
- * Mengirim pertanyaan (dan opsional lampiran file) ke Google Gemini API
- * @param {string} prompt Pertanyaan pengguna
- * @param {Array} attachments Array objek Attachment dari Discord.js
- * @returns {Promise<string>} Jawaban dari Gemini
+ * Mengirim pertanyaan (beserta lampiran Discord maupun link YouTube / Google Drive) ke Gemini API
  */
 async function askGemini(prompt, attachments = []) {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -216,17 +367,23 @@ async function askGemini(prompt, attachments = []) {
 
     const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
 
-    const { mediaParts, textBlocks } = await processAttachments(attachments);
+    const [attResult, linkResult] = await Promise.all([
+        processAttachments(attachments),
+        processGoogleLinks(prompt)
+    ]);
+
+    const allMediaParts = [...attResult.mediaParts, ...linkResult.mediaParts];
+    const allTextBlocks = [...attResult.textBlocks, ...linkResult.textBlocks];
 
     const sanitizedPrompt = String(prompt).replace(/<\/?user_message>/gi, '');
     let fullTextPrompt = `<user_message>\n${sanitizedPrompt}\n</user_message>`;
 
-    if (textBlocks.length > 0) {
-        fullTextPrompt += `\n\n${textBlocks.join('\n\n')}`;
+    if (allTextBlocks.length > 0) {
+        fullTextPrompt += `\n\n${allTextBlocks.join('\n\n')}`;
     }
 
-    const contentsPayload = mediaParts.length > 0
-        ? [fullTextPrompt, ...mediaParts]
+    const contentsPayload = allMediaParts.length > 0
+        ? [fullTextPrompt, ...allMediaParts]
         : fullTextPrompt;
 
     const modelsToTry = [

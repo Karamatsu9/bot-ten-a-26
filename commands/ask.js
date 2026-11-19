@@ -58,6 +58,9 @@ module.exports = {
                     content: `⚠️ ${error.message}\nFormat yang didukung: **PDF, gambar (PNG/JPG/WEBP), file teks/data (TXT, CSV, JSON, MD), serta audio/video** (maks. 15 MB). *(Untuk file Word/Excel/PPT, silakan export ke PDF terlebih dahulu).*`
                 });
             }
+            if (error.code === 'DRIVE_ACCESS_DENIED') {
+                return interaction.editReply({ content: `🔒 ${error.message}` }); // atau message.reply(...) di index.js
+            }
 
             return interaction.editReply({
                 content: '❌ Terjadi kesalahan saat memproses pertanyaan atau filemu. Silakan coba lagi beberapa saat lagi.'
