@@ -1,9 +1,71 @@
+const fs = require('fs');
+const path = require('path');
 const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const pino = require('pino');
 const qrcode = require('qrcode-terminal');
 
+const DATA_DIR = path.join(__dirname, '..', 'data');
+const WA_CONFIG_FILE = path.join(DATA_DIR, 'waConfig.json');
 const MAX_DISCORD_FILE_SIZE = 10 * 1024 * 1024; // Batas aman upload Discord (10 MB)
+
 const allowedAnnounceJids = new Set();
+let detectedAnnounceGroups = [];
+let isWhatsAppConnected = false;
+
+function ensureConfigStorage() {
+    if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(WA_CONFIG_FILE)) {
+        const initialConfig = {
+            enabled: Boolean((process.env.WA_DISCORD_CHANNEL_ID || '').trim()),
+            channelId: (process.env.WA_DISCORD_CHANNEL_ID || '').trim(),
+            announcementJid: (process.env.WA_ANNOUNCEMENT_JID || '').trim()
+        };
+        fs.writeFileSync(WA_CONFIG_FILE, JSON.stringify(initialConfig, null, 2), 'utf8');
+    }
+}
+
+function getWaConfig() {
+    ensureConfigStorage();
+    try {
+        const raw = fs.readFileSync(WA_CONFIG_FILE, 'utf8');
+        const parsed = JSON.parse(raw);
+        return {
+            enabled: parsed.enabled !== undefined ? Boolean(parsed.enabled) : true,
+            channelId: (parsed.channelId || process.env.WA_DISCORD_CHANNEL_ID || '').trim(),
+            announcementJid: (parsed.announcementJid || process.env.WA_ANNOUNCEMENT_JID || '').trim()
+        };
+    } catch {
+        return {
+            enabled: true,
+            channelId: (process.env.WA_DISCORD_CHANNEL_ID || '').trim(),
+            announcementJid: (process.env.WA_ANNOUNCEMENT_JID || '').trim()
+        };
+    }
+}
+
+function updateWaConfig(patch) {
+    const current = getWaConfig();
+    const updated = { ...current, ...patch };
+    ensureConfigStorage();
+    fs.writeFileSync(WA_CONFIG_FILE, JSON.stringify(updated, null, 2), 'utf8');
+
+    if (updated.announcementJid) {
+        allowedAnnounceJids.clear();
+        allowedAnnounceJids.add(updated.announcementJid);
+    }
+
+    return updated;
+}
+
+function getWaBridgeStatus() {
+    return {
+        isConnected: isWhatsAppConnected,
+        activeJids: [...allowedAnnounceJids],
+        detectedAnnounceGroups
+    };
+}
 
 function unwrapMessageContent(rawMessage) {
     let msg = rawMessage;
@@ -24,32 +86,31 @@ function unwrapMessageContent(rawMessage) {
 }
 
 async function syncAnnouncementGroups(sock) {
-    const configuredJid = (process.env.WA_ANNOUNCEMENT_JID || '').trim();
-    if (configuredJid) {
+    const config = getWaConfig();
+    if (config.announcementJid) {
         allowedAnnounceJids.clear();
-        allowedAnnounceJids.add(configuredJid);
+        allowedAnnounceJids.add(config.announcementJid);
     }
 
     try {
         const groups = await sock.groupFetchAllParticipating();
         const announceGroups = Object.values(groups).filter(g => g.isCommunityAnnounce === true);
+        detectedAnnounceGroups = announceGroups.map(g => ({ id: g.id, subject: g.subject || 'Announcements' }));
 
         console.log('\x1b[36m[WA BRIDGE] Daftar Channel Announcements Komunitas yang terdeteksi:\x1b[0m');
         if (announceGroups.length === 0) {
             console.log(' • Tidak ada grup Announcements komunitas yang ditemukan pada akun WA ini.');
         } else {
             for (const g of announceGroups) {
-                console.log(` • \x1b[33m${g.subject}\x1b[0m -> WA_ANNOUNCEMENT_JID=\x1b[32m${g.id}\x1b[0m`);
-                // Jika WA_ANNOUNCEMENT_JID belum diisi di .env, otomatis pilih Announcements milik TEN A
-                if (!configuredJid && /ten\s*a/i.test(g.subject || '')) {
+                console.log(` • \x1b[33m${g.subject}\x1b[0m -> JID: \x1b[32m${g.id}\x1b[0m`);
+                if (!config.announcementJid && /ten\s*a/i.test(g.subject || '')) {
                     allowedAnnounceJids.add(g.id);
                 }
             }
         }
 
-        if (!configuredJid && allowedAnnounceJids.size > 0) {
-            console.log(`\x1b[32m[WA BRIDGE] Auto-lock aktif ke: ${[...allowedAnnounceJids].join(', ')}\x1b[0m`);
-            console.log('💡 Tip: Salin WA_ANNOUNCEMENT_JID di atas ke file .env agar terkunci permanen.\n');
+        if (!config.announcementJid && allowedAnnounceJids.size > 0) {
+            console.log(`\x1b[32m[WA BRIDGE] Auto-lock aktif ke: ${[...allowedAnnounceJids].join(', ')}\x1b[0m\n`);
         }
     } catch (err) {
         console.warn('[WA BRIDGE] Gagal mengambil daftar grup:', err.message || err);
@@ -57,12 +118,6 @@ async function syncAnnouncementGroups(sock) {
 }
 
 async function startWhatsAppBridge(discordClient) {
-    const targetChannelId = (process.env.WA_DISCORD_CHANNEL_ID || '').trim();
-    if (!targetChannelId) {
-        console.warn('\x1b[33m[WA BRIDGE] WA_DISCORD_CHANNEL_ID belum diisi di .env. Bridge WhatsApp dilewati.\x1b[0m');
-        return;
-    }
-
     const baileys = await import('@whiskeysockets/baileys');
     const makeWASocket = baileys.default?.default || baileys.default || baileys.makeWASocket;
     const {
@@ -93,6 +148,7 @@ async function startWhatsAppBridge(discordClient) {
         }
 
         if (connection === 'close') {
+            isWhatsAppConnected = false;
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
             console.warn(`[WA BRIDGE] Koneksi terputus (kode: ${statusCode}). ${shouldReconnect ? 'Menghubungkan ulang dalam 5 detik...' : 'Sesi logout, hapus folder wa_auth untuk scan ulang.'}`);
@@ -100,6 +156,7 @@ async function startWhatsAppBridge(discordClient) {
                 setTimeout(() => startWhatsAppBridge(discordClient), 5000);
             }
         } else if (connection === 'open') {
+            isWhatsAppConnected = true;
             console.log('\x1b[32m[WA BRIDGE] Berhasil terhubung ke WhatsApp!\x1b[0m');
             await syncAnnouncementGroups(sock);
         }
@@ -108,6 +165,9 @@ async function startWhatsAppBridge(discordClient) {
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if (type !== 'notify') return;
 
+        const config = getWaConfig();
+        if (!config.enabled || !config.channelId) return;
+
         for (const rawMsg of messages) {
             try {
                 if (!rawMsg.message || rawMsg.key.fromMe) continue;
@@ -115,7 +175,6 @@ async function startWhatsAppBridge(discordClient) {
                 const remoteJid = rawMsg.key.remoteJid;
                 if (!remoteJid || !remoteJid.endsWith('@g.us')) continue;
 
-                // Pastikan daftar JID announcements sudah terisi
                 if (allowedAnnounceJids.size === 0) {
                     await syncAnnouncementGroups(sock);
                 }
@@ -132,7 +191,6 @@ async function startWhatsAppBridge(discordClient) {
 
                 const senderName = rawMsg.pushName || 'Admin Kelas';
 
-                // Ambil isi teks atau caption dari dokumen/gambar/video
                 const textBody =
                     content.conversation ||
                     content.extendedTextMessage?.text ||
@@ -141,7 +199,6 @@ async function startWhatsAppBridge(discordClient) {
                     content.videoMessage?.caption ||
                     '';
 
-                // Cek keberadaan lampiran file/media
                 const mediaMsg =
                     content.documentMessage ||
                     content.imageMessage ||
@@ -179,9 +236,9 @@ async function startWhatsAppBridge(discordClient) {
 
                 if (!textBody && files.length === 0 && !sizeWarning) continue;
 
-                const channel = await discordClient.channels.fetch(targetChannelId).catch(() => null);
+                const channel = await discordClient.channels.fetch(config.channelId).catch(() => null);
                 if (!channel || !channel.isTextBased()) {
-                    console.error(`[WA BRIDGE] Channel Discord (${targetChannelId}) tidak ditemukan.`);
+                    console.error(`[WA BRIDGE] Channel Discord (${config.channelId}) tidak ditemukan.`);
                     continue;
                 }
 
@@ -189,7 +246,7 @@ async function startWhatsAppBridge(discordClient) {
                 const timestampSec = Number(rawMsg.messageTimestamp) || Math.floor(Date.now() / 1000);
 
                 const embed = new EmbedBuilder()
-                    .setColor(0x25D366) // Hijau WhatsApp
+                    .setColor(0x25D366)
                     .setAuthor({ name: `📢 Announcements • ${groupMeta?.subject || 'Info Tugas & Materi TEN A'}` })
                     .setDescription(fullDescription)
                     .setFooter({ text: `Dikirim oleh ${senderName} via WhatsApp` })
@@ -208,4 +265,9 @@ async function startWhatsAppBridge(discordClient) {
     });
 }
 
-module.exports = { startWhatsAppBridge };
+module.exports = {
+    startWhatsAppBridge,
+    getWaConfig,
+    updateWaConfig,
+    getWaBridgeStatus
+};
