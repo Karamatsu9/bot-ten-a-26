@@ -1,26 +1,26 @@
 # TEN A '26 Discord Bot 🤖
 
-Bot Discord multi-server berbasis **Node.js** dan **Discord.js v14** yang awalnya dikembangkan untuk server **TEN A '26** (Teknik Konversi Energi) dan siap di-*self-host* maupun ditambahkan ke berbagai server Discord lain. Dilengkapi asisten tanya jawab berbasis **Google Gemini API** (membaca file lampiran, link YouTube, dan Google Drive), pengingat otomatis via DM zona waktu Jakarta (UTC+7), **WhatsApp Community Announcements Bridge per-server**, **Auto-Role**, Auto-Respond Embed, Welcome Message, dan Private Room System.
+Bot Discord multi-server berbasis **Node.js** dan **Discord.js v14** yang awalnya dikembangkan untuk server **TEN A '26** (Teknik Konversi Energi) dan siap di-*self-host* maupun ditambahkan ke berbagai server Discord lain. Dilengkapi asisten tanya jawab berbasis **Google Gemini API** (membaca file lampiran, tautan Google Maps, YouTube, dan Google Drive), pengingat otomatis via DM zona waktu Jakarta (UTC+7), **WhatsApp Community Announcements Bridge per-server**, **Auto-Role**, **Reddit Meme Fetcher**, Auto-Respond Embed, Welcome Message, dan Private Room System.
 
 ---
 
 ## 📋 Daftar Lengkap Fitur & Command
 
 ### 1. 💬 Tanya Jawab, Analisis File & Link Google (Google Gemini API)
-Asisten diskusi akademik dan pertanyaan umum dengan proteksi identitas permanen, pemecahan pesan otomatis (> 2000 karakter), konversi simbol matematika/LaTeX ke karakter Unicode rapi, mention user otomatis (`<@userId>`), serta pembacaan file dan tautan.
+Asisten diskusi akademik dan pertanyaan umum dengan proteksi identitas permanen, pemecahan pesan otomatis (> 2000 karakter), konversi simbol matematika/LaTeX ke karakter Unicode rapi, mention user otomatis (`<@userId>`), pencarian web (Google Search grounding), serta pembacaan file dan tautan.
 - **Slash Command:**
   - `/ask [question] [file]` — Bertanya ke bot dan/atau melampirkan file untuk dibaca, dirangkum, atau dianalisis
 - **Prefix Command:**
   - `[prefix]ask <pertanyaan>` — Contoh: `!ask Jelaskan hukum pertama termodinamika`
   - `[prefix] <pertanyaan>` — Contoh: `! Jelaskan siklus Rankine secara singkat`
   - **Membaca File via Prefix:** Lampirkan file langsung bersama `[prefix]ask` (atau kirim file dengan caption `!`), maupun **reply pesan yang berisi file** lalu ketik `!ask jelaskan isi file ini`
-  - **Membaca Link YouTube & Google Drive:** Tempelkan URL YouTube atau Google Drive/Docs/Sheets/Slides langsung di dalam pertanyaan
+  - **Membaca Link Google Maps, YouTube & Google Drive:** Tempelkan URL lokasi **Google Maps** (`maps.app.goo.gl` / `google.com/maps`), video **YouTube**, atau file **Google Drive/Docs/Sheets/Slides** langsung di dalam pertanyaan
 
 > **Format File & Link yang Didukung (Maks. 15 MB):**
 > - **Dokumen & Teks:** `PDF`, `TXT`, `MD`, `CSV`, `JSON`, `XML`, `HTML`, `TEX`, `LOG`
 > - **Gambar:** `PNG`, `JPG`, `JPEG`, `WEBP`, `HEIC`
 > - **Audio & Video:** `MP3`, `WAV`, `OGG`, `FLAC`, `AAC`, `MP4`, `MOV`, `WEBM`
-> - **Tautan:** Video **YouTube** (Publik/Unlisted) serta file **Google Drive, Docs, Sheets, dan Slides** dengan izin akses *"Anyone with the link"*
+> - **Tautan:** Lokasi **Google Maps**, video **YouTube** (Publik/Unlisted), serta file **Google Drive, Docs, Sheets, dan Slides** dengan izin akses *"Anyone with the link"*
 > *(Catatan: Untuk file Microsoft Word/Excel/PowerPoint lokal, export ke **PDF** terlebih dahulu agar dapat dibaca).*
 
 ---
@@ -115,7 +115,16 @@ Mengubah prefix perintah teks secara dinamis per server (default: `!`).
 
 ---
 
-### 9. 📖 Menu Bantuan Interaktif & Utilitas
+### 9. 😂 Reddit Meme Fetcher (SFW)
+Mengambil gambar meme secara acak dari berbagai subreddit Reddit dengan filter konten aman (SFW), dilengkapi autocomplete subreddit populer serta tombol interaktif **Meme Berikutnya**.
+- **Slash Command:**
+  - `/meme [subreddit]` — Mengambil meme acak atau dari subreddit tertentu *(contoh: `memes`, `ProgrammerHumor`, `engineeringmemes`, `indowibu`)*
+- **Prefix Command:**
+  - `[prefix]meme [subreddit]` — Contoh: `!meme` atau `!meme physicsmemes`
+
+---
+
+### 10. 📖 Menu Bantuan Interaktif & Utilitas
 - `/help` atau `[prefix]help` — Menampilkan menu bantuan multi-halaman per kategori dengan ringkasan kategori di setiap halaman, dropdown menu, dan tombol navigasi
 - `/ping` atau `[prefix]ping` — Mengecek latensi koneksi bot ke Discord Gateway
 - `[prefix]halo` — Menyapa bot *(juga merespons sapaan teks `"halo"` atau `"halo bot"`)*
@@ -143,3 +152,44 @@ Mengubah prefix perintah teks secara dinamis per server (default: `!`).
 git clone <url-repository-kamu>
 cd ten-a-bot-discord
 npm install
+```
+
+### 3. Konfigurasi File `.env`
+Buat file `.env` di folder utama proyek dan isi variabel berikut:
+```env
+DISCORD_TOKEN=masukkan_token_bot_kamu_di_sini
+CLIENT_ID=masukkan_application_id_di_sini
+
+# Opsional: isi GUILD_ID hanya jika ingin deploy command ke 1 server saja.
+# Biarkan dikomentari/kosong agar Slash Command terdaftar secara GLOBAL di semua server.
+# GUILD_ID=masukkan_id_server_discord_kamu
+
+# Dapatkan gratis di [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+GEMINI_API_KEY=masukkan_api_key_gemini_di_sini
+# Opsional: tentukan model utama Gemini
+GEMINI_MODEL=gemini-3.8-flash
+```
+
+### 4. Deploy Slash Commands & Jalankan Bot
+```bash
+npm run deploy
+npm start
+```
+*(Atau jalankan menggunakan `node index.js`).*
+
+### 5. Menautkan WhatsApp Announcements di Server Discord
+Setelah bot masuk ke server Discord:
+1. Moderator/Admin menjalankan **`/wa-update login`** dan memindai QR Code privat yang dikirim bot menggunakan akun WhatsApp cadangan yang tergabung di komunitas.
+2. Jalankan **`/wa-update set channel:#channel-tujuan jid:<pilih-grup-announcements>`**.
+3. Uji pengiriman dengan **`/wa-update test`**.
+
+---
+
+## 🔒 Catatan Keamanan Repository
+Pastikan file **`.gitignore`** selalu mengecualikan direktori dan file sensitif berikut agar kredensial tidak terunggah ke GitHub:
+```gitignore
+node_modules/
+.env
+data/
+wa_auth/
+```
