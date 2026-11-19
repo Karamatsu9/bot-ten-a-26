@@ -4,7 +4,7 @@ const { askGemini, splitMessage } = require('../utils/gemini');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('ask')
-        .setDescription('Tanyakan apa saja ke AI (Gemini)')
+        .setDescription('Tanyakan apa saja ke bot TEN A \'26')
         .addStringOption(opt =>
             opt.setName('question')
                 .setDescription('Pertanyaan yang ingin kamu tanyakan')
@@ -20,12 +20,10 @@ module.exports = {
             const answer = await askGemini(question);
             const chunks = splitMessage(answer, 1950);
 
-            // Kirim balasan pertama
             await interaction.editReply({
                 content: `> 💬 **Pertanyaan:** ${question.length > 250 ? question.substring(0, 247) + '...' : question}\n\n${chunks[0]}`
             });
 
-            // Jika jawaban sangat panjang, kirim sisa potongan sebagai followUp
             for (let i = 1; i < chunks.length; i++) {
                 await interaction.followUp({ content: chunks[i] });
             }
@@ -38,7 +36,7 @@ module.exports = {
             }
 
             return interaction.editReply({
-                content: '❌ Terjadi kesalahan saat memproses pertanyaanmu ke Gemini AI. Silakan coba lagi beberapa saat lagi.'
+                content: '❌ Terjadi kesalahan saat memproses pertanyaanmu. Silakan coba lagi beberapa saat lagi.'
             });
         }
     }

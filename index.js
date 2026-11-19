@@ -12,6 +12,14 @@ const {
 } = require('discord.js');
 const storage = require('./utils/storage');
 const { askGemini, splitMessage } = require('./utils/gemini');
+const { 
+    parseTimeWIB, 
+    formatWIB, 
+    addReminder, 
+    getUserReminders, 
+    deleteReminder, 
+    startReminderLoop 
+} = require('./utils/reminderManager');
 
 // Validasi Token
 if (!process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN === 'your_bot_token_here') {
@@ -30,7 +38,7 @@ const client = new Client({
     ]
 });
 
-// Koleksi Slash Commands
+// Koleksi Slash Commands (Otomatis memuat commands/remind.js, commands/ask.js, dll)
 client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsPath)) {
@@ -48,6 +56,10 @@ if (fs.existsSync(commandsPath)) {
 client.once(Events.ClientReady, () => {
     console.log(`\x1b[32m[SUKSES] Bot online sebagai ${client.user.tag}!\x1b[0m`);
     
+    // Jalankan pengecekan jadwal reminder (UTC+7 / Jakarta)
+    startReminderLoop(client);
+    console.log('\x1b[36m[INFO] Sistem Reminder UTC+7 (WIB) aktif.\x1b[0m');
+
     // Tampilkan daftar server yang dimasuki bot untuk memudahkan copy GUILD_ID
     if (client.guilds.cache.size > 0) {
         console.log('\x1b[36m[INFO] Server yang terhubung dengan bot:\x1b[0m');
@@ -64,7 +76,7 @@ client.once(Events.ClientReady, () => {
     });
 });
 
-// Event menangani Slash Commands (/ping, /help, /autorespond, /welcome, dll)
+// Event menangani Slash Commands (/ping, /help, /ask, /remind, /autorespond, /welcome, dll)
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -173,10 +185,85 @@ client.on('messageCreate', async (message) => {
         }
 
         storage.setGuildPrefix(message.guild.id, args);
-        return message.reply(`✅ **Prefix bot berhasil diubah!** Sekarang gunakan \`${args}\` untuk perintah (contoh: \`${args}ask\`, \`${args}ping\`, \`${args}help\`).`);
+        return message.reply(`✅ **Prefix bot berhasil diubah!** Sekarang gunakan \`${args}\` untuk perintah (contoh: \`${args}ask\`, \`${args}remind\`, \`${args}ping\`, \`${args}help\`).`);
     }
 
-    // 3. Perintah Tanya Gemini AI: [prefix]ask <pertanyaan> ATAU [prefix] <pertanyaan>
+    // 3. Perintah Reminder (UTC+7 / Jakarta): [prefix]remind
+    if (contentLower === `${prefix}remind` || contentLower.startsWith(`${prefix}remind `)) {
+        const raw = content.slice(prefix.length + 'remind'.length).trim();
+
+        // Lihat daftar reminder aktif: [prefix]remind list
+        if (raw.toLowerCase() === 'list') {
+            const list = getUserReminders(message.author.id);
+            if (list.length === 0) {
+                return message.reply('📭 Kamu belum memiliki pengingat aktif saat ini.');
+            }
+
+            const lines = list.map((r, idx) => {
+                const unix = Math.floor(r.remindAt / 1000);
+                return `${idx + 1}. **ID:** \`${r.id}\` — ${formatWIB(r.remindAt)} (<t:${unix}:R>)\n   > ${r.message}`;
+            });
+
+            return message.reply(`📋 **Daftar Pengingat Aktif Kamu:**\n\n${lines.join('\n\n')}`);
+        }
+
+        // Hapus reminder: [prefix]remind hapus <id>
+        if (raw.toLowerCase().startsWith('hapus ')) {
+            const id = raw.slice('hapus'.length).trim();
+            if (!id) {
+                return message.reply(`⚠️ Masukkan ID pengingat yang ingin dihapus! Contoh: \`${prefix}remind hapus abc123\``);
+            }
+
+            const removed = deleteReminder(id, message.author.id);
+            if (!removed) {
+                return message.reply(`❌ Pengingat dengan ID \`${id}\` tidak ditemukan atau bukan milikmu.`);
+            }
+
+            return message.reply(`🗑️ Pengingat dengan ID \`${id}\` berhasil dibatalkan.`);
+        }
+
+        // Buat reminder baru: [prefix]remind <waktu> | <pesan>
+        const parts = raw.split('|');
+        if (parts.length < 2 || !parts[0].trim() || !parts[1].trim()) {
+            return message.reply(
+                `⏰ **Cara Menggunakan Reminder (Waktu Jakarta / UTC+7):**\n` +
+                `• Buat baru: \`${prefix}remind <waktu> | <pesan>\`\n` +
+                `  *Contoh:* \`${prefix}remind 30m | Kumpul tugas\` atau \`${prefix}remind 19:30 | Rapat kelompok\`\n` +
+                `• Lihat daftar: \`${prefix}remind list\`\n` +
+                `• Batalkan: \`${prefix}remind hapus <id>\``
+            );
+        }
+
+        const waktuInput = parts[0].trim();
+        const pesan = parts.slice(1).join('|').trim();
+        const targetMs = parseTimeWIB(waktuInput);
+
+        if (!targetMs) {
+            return message.reply(
+                '⚠️ **Format waktu tidak valid atau sudah terlewat!**\n' +
+                'Gunakan waktu **UTC+7 (WIB)** dengan salah satu format berikut:\n' +
+                '• Durasi: `15m`, `2j`, `1j 30m`, `1d`\n' +
+                '• Jam hari ini/besok: `19:30`\n' +
+                '• Tanggal & jam: `20/11/2026 08:00` atau `2026-11-20 08:00`'
+            );
+        }
+
+        const reminder = addReminder({
+            userId: message.author.id,
+            channelId: message.channel.id,
+            message: pesan,
+            remindAt: targetMs
+        });
+
+        const unixSeconds = Math.floor(targetMs / 1000);
+        return message.reply(
+            `✅ **Pengingat disimpan!** (ID: \`${reminder.id}\`)\n` +
+            `• **Waktu:** ${formatWIB(targetMs)} (<t:${unixSeconds}:R>)\n` +
+            `• **Pesan:** ${pesan}`
+        );
+    }
+
+    // 4. Perintah Tanya Bot TEN A '26: [prefix]ask <pertanyaan> ATAU [prefix] <pertanyaan>
     let isAskCommand = false;
     let query = '';
 
@@ -212,34 +299,35 @@ client.on('messageCreate', async (message) => {
             if (error.code === 'MISSING_API_KEY' || error.message === 'MISSING_API_KEY') {
                 return message.reply('⚠️ **Gemini API Key belum dimasukkan!**\nSilakan masukkan API Key Anda di file `.env` pada variabel `GEMINI_API_KEY=...` (Bisa didapatkan secara gratis di https://aistudio.google.com/app/apikey).');
             }
-            return message.reply('❌ Terjadi kesalahan saat menghubungi Gemini AI. Silakan coba beberapa saat lagi.');
+            return message.reply('❌ Terjadi kesalahan saat menghubungi server AI. Silakan coba beberapa saat lagi.');
         }
         return;
     }
 
-    // 4. Respon percakapan santai bawaan
+    // 5. Respon percakapan santai bawaan
     if (contentLower === 'halo bot' || contentLower === 'halo' || contentLower === `${prefix}halo`) {
-        return message.reply(`Halo <@${message.author.id}>! Ada yang bisa kubantu? Ketik \`${prefix}ask <pertanyaan>\` untuk bertanya ke AI, atau \`${prefix}help\` untuk melihat daftar perintah.`);
+        return message.reply(`Halo <@${message.author.id}>! Ada yang bisa kubantu? Ketik \`${prefix}ask <pertanyaan>\` untuk bertanya, atau \`${prefix}help\` untuk melihat daftar perintah.`);
     }
 
-    // 5. Perintah dengan prefix: ping
+    // 6. Perintah dengan prefix: ping
     if (content.startsWith(`${prefix}ping`)) {
         const ping = client.ws.ping;
         return message.reply(`🏓 **Pong!** Latensi bot ke Discord Gateway: \`${ping}ms\``);
     }
 
-    // 6. Perintah dengan prefix: help
+    // 7. Perintah dengan prefix: help
     if (content.startsWith(`${prefix}help`)) {
         const helpEmbed = new EmbedBuilder()
             .setColor(0x00AE86)
             .setTitle(`📖 Menu Bantuan (Prefix: ${prefix})`)
             .setDescription(`Prefix server ini: \`${prefix}\`\nBerikut perintah yang tersedia:`)
             .addFields(
-                { name: `✨ ${prefix}ask <pertanyaan> atau ${prefix} <pertanyaan>`, value: 'Tanya apa saja langsung dijawab oleh Gemini AI!' },
+                { name: `✨ ${prefix}ask <pertanyaan> atau ${prefix} <pertanyaan>`, value: 'Tanya apa saja langsung dijawab oleh bot TEN A \'26!' },
+                { name: `⏰ ${prefix}remind <waktu> | <pesan>`, value: `Atur pengingat otomatis zona waktu Jakarta / UTC+7 (ketik \`${prefix}remind\` untuk panduan lengkap)` },
                 { name: `⚙️ ${prefix}setprefix <prefix_baru>`, value: 'Mengubah prefix bot (Khusus Administrator)' },
                 { name: `🏓 ${prefix}ping`, value: 'Mengecek respon dan latensi bot' },
                 { name: `👋 ${prefix}halo`, value: 'Menyapa bot' },
-                { name: 'Slash Commands', value: 'Gunakan `/help` untuk melihat fitur lengkap termasuk pengaturan Auto-Response dan Welcome Message.' }
+                { name: 'Slash Commands', value: 'Gunakan `/help` atau `/remind` untuk fitur lengkap termasuk pengaturan Auto-Response dan Welcome Message.' }
             )
             .setFooter({ text: `Diminta oleh ${message.author.username}` });
 
