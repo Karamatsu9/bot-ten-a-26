@@ -2,122 +2,149 @@ const fs = require('fs');
 const path = require('path');
 const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const pino = require('pino');
-const qrcode = require('qrcode-terminal');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const WA_CONFIG_FILE = path.join(DATA_DIR, 'waConfig.json');
-const MAX_DISCORD_FILE_SIZE = 10 * 1024 * 1024; // Batas aman upload Discord (10 MB)
+const WA_AUTH_BASE_DIR = path.join(__dirname, '..', 'wa_auth');
+const MAX_DISCORD_FILE_SIZE = 10 * 1024 * 1024; // Batas upload Discord (10 MB)
 
-const allowedAnnounceJids = new Set();
-let detectedAnnounceGroups = [];
-let isWhatsAppConnected = false;
+// Menyimpan instance koneksi WhatsApp aktif per server: Map<guildId, SessionState>
+const sessions = new Map();
 
-function ensureConfigStorage() {
+function ensureDirs() {
     if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
     }
+    if (!fs.existsSync(WA_AUTH_BASE_DIR)) {
+        fs.mkdirSync(WA_AUTH_BASE_DIR, { recursive: true });
+    }
     if (!fs.existsSync(WA_CONFIG_FILE)) {
-        const initialConfig = {
-            enabled: Boolean((process.env.WA_DISCORD_CHANNEL_ID || '').trim()),
-            channelId: (process.env.WA_DISCORD_CHANNEL_ID || '').trim(),
-            announcementJid: (process.env.WA_ANNOUNCEMENT_JID || '').trim()
-        };
-        fs.writeFileSync(WA_CONFIG_FILE, JSON.stringify(initialConfig, null, 2), 'utf8');
+        fs.writeFileSync(WA_CONFIG_FILE, JSON.stringify({ guilds: {} }, null, 2), 'utf8');
     }
 }
 
-function getWaConfig() {
-    ensureConfigStorage();
+function readAllConfigs() {
+    ensureDirs();
     try {
-        const raw = fs.readFileSync(WA_CONFIG_FILE, 'utf8');
-        const parsed = JSON.parse(raw);
-        return {
-            enabled: parsed.enabled !== undefined ? Boolean(parsed.enabled) : true,
-            channelId: (parsed.channelId || process.env.WA_DISCORD_CHANNEL_ID || '').trim(),
-            announcementJid: (parsed.announcementJid || process.env.WA_ANNOUNCEMENT_JID || '').trim()
-        };
+        const parsed = JSON.parse(fs.readFileSync(WA_CONFIG_FILE, 'utf8'));
+        return parsed && typeof parsed.guilds === 'object' ? parsed : { guilds: {} };
     } catch {
-        return {
-            enabled: true,
-            channelId: (process.env.WA_DISCORD_CHANNEL_ID || '').trim(),
-            announcementJid: (process.env.WA_ANNOUNCEMENT_JID || '').trim()
-        };
+        return { guilds: {} };
     }
 }
 
-function updateWaConfig(patch) {
-    const current = getWaConfig();
-    const updated = { ...current, ...patch };
-    ensureConfigStorage();
-    fs.writeFileSync(WA_CONFIG_FILE, JSON.stringify(updated, null, 2), 'utf8');
+function writeAllConfigs(data) {
+    ensureDirs();
+    fs.writeFileSync(WA_CONFIG_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
 
-    if (updated.announcementJid) {
-        allowedAnnounceJids.clear();
-        allowedAnnounceJids.add(updated.announcementJid);
+function getWaConfig(guildId) {
+    const data = readAllConfigs();
+    if (guildId && data.guilds[guildId]) {
+        return {
+            enabled: Boolean(data.guilds[guildId].enabled),
+            channelId: data.guilds[guildId].channelId || '',
+            announcementJid: data.guilds[guildId].announcementJid || ''
+        };
     }
+    return {
+        enabled: false,
+        channelId: '',
+        announcementJid: ''
+    };
+}
 
+function updateWaConfig(guildId, patch) {
+    const data = readAllConfigs();
+    const current = getWaConfig(guildId);
+    const updated = {
+        enabled: patch.enabled !== undefined ? Boolean(patch.enabled) : current.enabled,
+        channelId: patch.channelId !== undefined ? patch.channelId : current.channelId,
+        announcementJid: patch.announcementJid !== undefined ? patch.announcementJid : current.announcementJid
+    };
+
+    data.guilds[guildId] = updated;
+    writeAllConfigs(data);
     return updated;
 }
 
-function getWaBridgeStatus() {
+function getWaBridgeStatus(guildId) {
+    const session = sessions.get(guildId);
+    const authDir = path.join(WA_AUTH_BASE_DIR, guildId);
+    const hasSavedSession = fs.existsSync(path.join(authDir, 'creds.json'));
+
     return {
-        isConnected: isWhatsAppConnected,
-        activeJids: [...allowedAnnounceJids],
-        detectedAnnounceGroups
+        isConnected: Boolean(session?.isConnected),
+        hasSavedSession,
+        detectedAnnounceGroups: session?.detectedAnnounceGroups || []
     };
 }
 
 function unwrapMessageContent(rawMessage) {
     let msg = rawMessage;
     while (msg) {
-        if (msg.ephemeralMessage?.message) {
-            msg = msg.ephemeralMessage.message;
-        } else if (msg.viewOnceMessage?.message) {
-            msg = msg.viewOnceMessage.message;
-        } else if (msg.viewOnceMessageV2?.message) {
-            msg = msg.viewOnceMessageV2.message;
-        } else if (msg.documentWithCaptionMessage?.message) {
-            msg = msg.documentWithCaptionMessage.message;
-        } else {
-            break;
-        }
+        if (msg.ephemeralMessage?.message) msg = msg.ephemeralMessage.message;
+        else if (msg.viewOnceMessage?.message) msg = msg.viewOnceMessage.message;
+        else if (msg.viewOnceMessageV2?.message) msg = msg.viewOnceMessageV2.message;
+        else if (msg.documentWithCaptionMessage?.message) msg = msg.documentWithCaptionMessage.message;
+        else break;
     }
     return msg;
 }
 
-async function syncAnnouncementGroups(sock) {
-    const config = getWaConfig();
-    if (config.announcementJid) {
-        allowedAnnounceJids.clear();
-        allowedAnnounceJids.add(config.announcementJid);
-    }
-
+async function syncAnnouncementGroups(guildId, sock) {
     try {
         const groups = await sock.groupFetchAllParticipating();
-        const announceGroups = Object.values(groups).filter(g => g.isCommunityAnnounce === true);
-        detectedAnnounceGroups = announceGroups.map(g => ({ id: g.id, subject: g.subject || 'Announcements' }));
+        const announceGroups = Object.values(groups)
+            .filter(g => g.isCommunityAnnounce === true)
+            .map(g => ({
+                id: g.id,
+                subject: g.subject || 'Announcements Komunitas'
+            }));
 
-        console.log('\x1b[36m[WA BRIDGE] Daftar Channel Announcements Komunitas yang terdeteksi:\x1b[0m');
-        if (announceGroups.length === 0) {
-            console.log(' • Tidak ada grup Announcements komunitas yang ditemukan pada akun WA ini.');
-        } else {
-            for (const g of announceGroups) {
-                console.log(` • \x1b[33m${g.subject}\x1b[0m -> JID: \x1b[32m${g.id}\x1b[0m`);
-                if (!config.announcementJid && /ten\s*a/i.test(g.subject || '')) {
-                    allowedAnnounceJids.add(g.id);
-                }
-            }
+        const session = sessions.get(guildId);
+        if (session) {
+            session.detectedAnnounceGroups = announceGroups;
         }
 
-        if (!config.announcementJid && allowedAnnounceJids.size > 0) {
-            console.log(`\x1b[32m[WA BRIDGE] Auto-lock aktif ke: ${[...allowedAnnounceJids].join(', ')}\x1b[0m\n`);
+        // Jika server belum memilih JID dan hanya ada 1 grup Announcements di akun WA tersebut, pilih otomatis
+        const cfg = getWaConfig(guildId);
+        if (!cfg.announcementJid && announceGroups.length === 1) {
+            updateWaConfig(guildId, { announcementJid: announceGroups[0].id });
         }
+
+        return announceGroups;
     } catch (err) {
-        console.warn('[WA BRIDGE] Gagal mengambil daftar grup:', err.message || err);
+        console.warn(`[WA BRIDGE][${guildId}] Gagal mengambil daftar grup:`, err.message || err);
+        return [];
     }
 }
 
-async function startWhatsAppBridge(discordClient) {
+/**
+ * Memulai atau menghubungkan sesi WhatsApp khusus untuk satu server Discord (guildId)
+ */
+async function connectGuildWhatsApp(discordClient, guildId, options = {}) {
+    const { onQr, onPairingCode, onConnected, phoneNumber } = options;
+
+    // Jika sedang login ulang dengan QR/Pairing baru, tutup socket lama terlebih dahulu
+    const existing = sessions.get(guildId);
+    if (existing?.sock && (onQr || onPairingCode)) {
+        try {
+            existing.manualClose = true;
+            existing.sock.end(undefined);
+        } catch {
+            // Abaikan error saat menutup socket lama
+        }
+        sessions.delete(guildId);
+    } else if (existing?.starting) {
+        return;
+    }
+
+    const authDir = path.join(WA_AUTH_BASE_DIR, guildId);
+    if (!fs.existsSync(authDir)) {
+        fs.mkdirSync(authDir, { recursive: true });
+    }
+
     const baileys = await import('@whiskeysockets/baileys');
     const makeWASocket = baileys.default?.default || baileys.default || baileys.makeWASocket;
     const {
@@ -127,70 +154,117 @@ async function startWhatsAppBridge(discordClient) {
         fetchLatestBaileysVersion
     } = baileys;
 
-    const { state, saveCreds } = await useMultiFileAuthState('./wa_auth');
+    const { state, saveCreds } = await useMultiFileAuthState(authDir);
     const { version } = await fetchLatestBaileysVersion();
+
+    const sessionState = {
+        sock: null,
+        isConnected: false,
+        detectedAnnounceGroups: existing?.detectedAnnounceGroups || [],
+        starting: true,
+        manualClose: false
+    };
+    sessions.set(guildId, sessionState);
 
     const sock = makeWASocket({
         version,
         auth: state,
         logger: pino({ level: 'silent' }),
-        browser: ['TEN A 26 Bot', 'Chrome', '1.0.0']
+        browser: ['Discord WA Bridge', 'Chrome', '1.0.0']
     });
 
+    sessionState.sock = sock;
+
+    // Jika login menggunakan nomor HP (Pairing Code)
+    if (phoneNumber && !state.creds.registered) {
+        const cleanPhone = phoneNumber.replace(/\D/g, '');
+        setTimeout(async () => {
+            try {
+                const code = await sock.requestPairingCode(cleanPhone);
+                if (onPairingCode) await onPairingCode(code);
+            } catch (err) {
+                console.error(`[WA BRIDGE][${guildId}] Gagal meminta pairing code:`, err.message || err);
+            }
+        }, 2500);
+    }
+
     sock.ev.on('creds.update', saveCreds);
+
+    let qrHandled = false;
+    let connectedCallbackFired = false;
 
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        if (qr) {
-            console.log('\n\x1b[33m[WA BRIDGE] Scan QR Code ini menggunakan WhatsApp nomor kedua (Perangkat Tertaut):\x1b[0m');
-            qrcode.generate(qr, { small: true });
+        if (qr && onQr && !qrHandled && !phoneNumber) {
+            qrHandled = true;
+            try {
+                await onQr(qr);
+            } catch (err) {
+                console.error(`[WA BRIDGE][${guildId}] Gagal mengirim QR:`, err);
+            }
         }
 
         if (connection === 'close') {
-            isWhatsAppConnected = false;
+            sessionState.isConnected = false;
+            sessionState.starting = false;
+
+            if (sessionState.manualClose) return;
+
             const statusCode = lastDisconnect?.error?.output?.statusCode;
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-            console.warn(`[WA BRIDGE] Koneksi terputus (kode: ${statusCode}). ${shouldReconnect ? 'Menghubungkan ulang dalam 5 detik...' : 'Sesi logout, hapus folder wa_auth untuk scan ulang.'}`);
-            if (shouldReconnect) {
-                setTimeout(() => startWhatsAppBridge(discordClient), 5000);
+            const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+
+            if (isLoggedOut) {
+                console.log(`[WA BRIDGE][${guildId}] Sesi WhatsApp logout. Menghapus kredensial lokal.`);
+                sessions.delete(guildId);
+                fs.rmSync(authDir, { recursive: true, force: true });
+            } else {
+                console.warn(`[WA BRIDGE][${guildId}] Koneksi terputus (kode: ${statusCode}). Reconnect dalam 5 detik...`);
+                setTimeout(() => {
+                    if (fs.existsSync(path.join(authDir, 'creds.json'))) {
+                        connectGuildWhatsApp(discordClient, guildId);
+                    }
+                }, 5000);
             }
         } else if (connection === 'open') {
-            isWhatsAppConnected = true;
-            console.log('\x1b[32m[WA BRIDGE] Berhasil terhubung ke WhatsApp!\x1b[0m');
-            await syncAnnouncementGroups(sock);
+            sessionState.isConnected = true;
+            sessionState.starting = false;
+            console.log(`\x1b[32m[WA BRIDGE][${guildId}] Berhasil terhubung ke WhatsApp!\x1b[0m`);
+
+            const groups = await syncAnnouncementGroups(guildId, sock);
+
+            if (onConnected && !connectedCallbackFired) {
+                connectedCallbackFired = true;
+                try {
+                    await onConnected(groups);
+                } catch (err) {
+                    console.error(`[WA BRIDGE][${guildId}] Error callback onConnected:`, err);
+                }
+            }
         }
     });
 
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if (type !== 'notify') return;
 
-        const config = getWaConfig();
-        if (!config.enabled || !config.channelId) return;
+        const config = getWaConfig(guildId);
+        if (!config.enabled || !config.channelId || !config.announcementJid) return;
 
         for (const rawMsg of messages) {
             try {
                 if (!rawMsg.message || rawMsg.key.fromMe) continue;
 
                 const remoteJid = rawMsg.key.remoteJid;
-                if (!remoteJid || !remoteJid.endsWith('@g.us')) continue;
+                if (!remoteJid || remoteJid !== config.announcementJid) continue;
 
-                if (allowedAnnounceJids.size === 0) {
-                    await syncAnnouncementGroups(sock);
-                }
-
-                // FILTER KETAT: Hanya proses pesan dari channel Announcements yang diizinkan
-                if (!allowedAnnounceJids.has(remoteJid)) continue;
-
-                // Verifikasi ganda lewat metadata grup bahwa grup ini benar-benar Announcements komunitas
+                // Verifikasi bahwa grup asal benar-benar channel Announcements komunitas
                 const groupMeta = await sock.groupMetadata(remoteJid).catch(() => null);
-                if (groupMeta && groupMeta.isCommunityAnnounce !== true) continue;
+                if (!groupMeta || groupMeta.isCommunityAnnounce !== true) continue;
 
                 const content = unwrapMessageContent(rawMsg.message);
                 if (!content) continue;
 
-                const senderName = rawMsg.pushName || 'Admin Kelas';
-
+                const senderName = rawMsg.pushName || 'Admin';
                 const textBody =
                     content.conversation ||
                     content.extendedTextMessage?.text ||
@@ -220,15 +294,13 @@ async function startWhatsAppBridge(discordClient) {
                             {},
                             { logger: pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage }
                         );
-
                         const fallbackExt = content.imageMessage
                             ? 'gambar_info.jpg'
                             : content.videoMessage
                                 ? 'video_info.mp4'
                                 : content.audioMessage
                                     ? 'audio_info.ogg'
-                                    : 'lampiran_kelas';
-
+                                    : 'lampiran';
                         const fileName = mediaMsg.fileName || fallbackExt;
                         files.push(new AttachmentBuilder(buffer, { name: fileName }));
                     }
@@ -237,36 +309,81 @@ async function startWhatsAppBridge(discordClient) {
                 if (!textBody && files.length === 0 && !sizeWarning) continue;
 
                 const channel = await discordClient.channels.fetch(config.channelId).catch(() => null);
-                if (!channel || !channel.isTextBased()) {
-                    console.error(`[WA BRIDGE] Channel Discord (${config.channelId}) tidak ditemukan.`);
-                    continue;
-                }
+                // Pastikan channel tujuan benar-benar milik server (guildId) ini
+                if (!channel || !channel.isTextBased() || channel.guildId !== guildId) continue;
 
                 const fullDescription = ((textBody || '*(Mengirim lampiran file)*') + sizeWarning).slice(0, 4000);
                 const timestampSec = Number(rawMsg.messageTimestamp) || Math.floor(Date.now() / 1000);
 
                 const embed = new EmbedBuilder()
                     .setColor(0x25D366)
-                    .setAuthor({ name: `📢 Announcements • ${groupMeta?.subject || 'Info Tugas & Materi TEN A'}` })
+                    .setAuthor({ name: `📢 Announcements • ${groupMeta.subject || 'Info Komunitas'}` })
                     .setDescription(fullDescription)
                     .setFooter({ text: `Dikirim oleh ${senderName} via WhatsApp` })
                     .setTimestamp(timestampSec * 1000);
 
-                await channel.send({
-                    embeds: [embed],
-                    files
-                });
-
-                console.log(`[WA BRIDGE] Pengumuman dari ${senderName} berhasil diteruskan ke Discord.`);
+                await channel.send({ embeds: [embed], files });
             } catch (err) {
-                console.error('[WA BRIDGE] Error saat meneruskan pesan:', err);
+                console.error(`[WA BRIDGE][${guildId}] Error saat meneruskan pesan:`, err);
             }
         }
     });
 }
 
+/**
+ * Memutus tautan WhatsApp dan menghapus sesi login untuk server tertentu
+ */
+async function disconnectGuildWhatsApp(guildId) {
+    const session = sessions.get(guildId);
+    if (session?.sock) {
+        session.manualClose = true;
+        try {
+            await session.sock.logout();
+        } catch {
+            try {
+                session.sock.end(undefined);
+            } catch {
+                // Abaikan
+            }
+        }
+    }
+    sessions.delete(guildId);
+
+    const authDir = path.join(WA_AUTH_BASE_DIR, guildId);
+    if (fs.existsSync(authDir)) {
+        fs.rmSync(authDir, { recursive: true, force: true });
+    }
+
+    updateWaConfig(guildId, { enabled: false, announcementJid: '' });
+}
+
+/**
+ * Otomatis menghubungkan kembali seluruh server yang sudah memiliki sesi WA tersimpan saat bot menyala
+ */
+async function startWhatsAppBridge(discordClient) {
+    ensureDirs();
+    const entries = fs.readdirSync(WA_AUTH_BASE_DIR, { withFileTypes: true });
+    const guildDirs = entries.filter(e => e.isDirectory()).map(e => e.name);
+
+    if (guildDirs.length === 0) {
+        console.log('\x1b[36m[WA BRIDGE] Siap (multi-server). Gunakan /wa-update login di server untuk menautkan WhatsApp.\x1b[0m');
+        return;
+    }
+
+    console.log(`\x1b[36m[WA BRIDGE] Memulihkan ${guildDirs.length} sesi WhatsApp per-server...\x1b[0m`);
+    for (const guildId of guildDirs) {
+        if (fs.existsSync(path.join(WA_AUTH_BASE_DIR, guildId, 'creds.json'))) {
+            connectGuildWhatsApp(discordClient, guildId).catch(err => {
+                console.error(`[WA BRIDGE][${guildId}] Gagal memulihkan sesi:`, err);
+            });
+        }
+    }
+}
+
 module.exports = {
     startWhatsAppBridge,
+    connectGuildWhatsApp,
+    disconnectGuildWhatsApp,
     getWaConfig,
     updateWaConfig,
     getWaBridgeStatus

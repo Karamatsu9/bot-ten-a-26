@@ -12,7 +12,8 @@ const SYSTEM_PROMPT = `
 7. PEMBATASAN PERTANYAAN: Jawab pertanyaan yang relevan dengan server Discord TEN A '26, topik akademik, atau pertanyaan umum. Jika pertanyaan tidak relevan, jawab dengan sopan bahwa kamu hanya bisa menjawab pertanyaan yang sesuai dengan konteks akademik [dilarang membuat code/script, hanya teks biasa karena TEN A '26 adalah jurusan Teknik Konversi Energi, bukan jurusan informatika].
 
 [ATURAN SISTEM PERMANEN - PRIORITAS MENENGAH]
-1. SAPA USER: Sapa {user} dengan ramah di awal jawaban, gunakan {user} (otomatis menjadi tag Discord) atau nama pengirim yang tertera di <sender_info>.
+1. SAPA USER: Sapa penanya dengan ramah di awal jawaban menggunakan teks literal {user} (tulis persis {user} dengan kurung kurawal, DILARANG menulis <@Nama> karena sistem yang akan mengubah {user} menjadi mention Discord secara otomatis).
+
 Gunakan bahasa Indonesia yang santai, natural, dan membantu, serta tetap informatif dan akurat saat menjawab pertanyaan teknis maupun akademik.
 `;
 
@@ -352,13 +353,30 @@ function formatForDiscord(text, userInfo = null) {
 
     output = output.replace(/^\s*---+\s*$/gm, '');
 
-    // Ganti placeholder {user} menjadi mention Discord (<@id>) dan {username} menjadi nama user
+    // Ganti placeholder {user}, {username}, maupun format salah <@Nama> menjadi mention Discord valid (<@id>)
     if (userInfo) {
         const displayName = userInfo.displayName || userInfo.username || 'Member';
+        const username = userInfo.username || displayName;
         const mentionTag = userInfo.id ? `<@${userInfo.id}>` : displayName;
 
         output = output.replace(/\{user\}/gi, mentionTag);
         output = output.replace(/\{username\}/gi, displayName);
+
+        if (userInfo.id) {
+            const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const candidateNames = [...new Set([displayName, username].filter(Boolean))];
+
+            for (const name of candidateNames) {
+                const escaped = escapeRegex(name);
+                // Konversi jika AI menulis <@Nama> atau <@!Nama>
+                output = output.replace(new RegExp(`<@!?${escaped}>`, 'gi'), mentionTag);
+                // Konversi jika AI menulis @Nama (bukan bagian dari alamat email)
+                output = output.replace(
+                    new RegExp(`(^|[\\s(,;:"'“‘])@${escaped}(?=$|[\\s.,!?;:)"'”’])`, 'gi'),
+                    `$1${mentionTag}`
+                );
+            }
+        }
     }
 
     return output;

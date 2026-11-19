@@ -58,7 +58,7 @@ if (fs.existsSync(commandsPath)) {
 client.once(Events.ClientReady, () => {
     console.log(`\x1b[32m[SUKSES] Bot online sebagai ${client.user.tag}!\x1b[0m`);
     
-    // Jalankan pengecekan jadwal reminder (UTC+7 / Jakarta)
+    // Jalankan pengecekan jadwal reminder (UTC+7 / Jakarta) & WhatsApp Bridge multi-server
     startReminderLoop(client);
     startWhatsAppBridge(client);
     console.log('\x1b[36m[INFO] Sistem Reminder UTC+7 (WIB) aktif.\x1b[0m');
@@ -79,8 +79,21 @@ client.once(Events.ClientReady, () => {
     });
 });
 
-// Event menangani Slash Commands (/ping, /help, /ask, /remind, /autorespond, /welcome, dll)
+// Event menangani Slash Commands & Autocomplete (/ping, /help, /ask, /remind, /wa-update, dll)
 client.on('interactionCreate', async (interaction) => {
+    // Tangani dropdown autocomplete (misalnya pemilihan grup JID pada /wa-update set)
+    if (interaction.isAutocomplete()) {
+        const command = client.commands.get(interaction.commandName);
+        if (command && typeof command.autocomplete === 'function') {
+            try {
+                await command.autocomplete(interaction);
+            } catch (err) {
+                console.error(`Error autocomplete /${interaction.commandName}:`, err);
+            }
+        }
+        return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     const command = client.commands.get(interaction.commandName);
@@ -342,7 +355,6 @@ client.on('messageCreate', async (message) => {
         return message.reply(`🏓 **Pong!** Latensi bot ke Discord Gateway: \`${ping}ms\``);
     }
 
-    // 7. Perintah dengan prefix: help
     // 7. Perintah dengan prefix: help
     if (content.startsWith(`${prefix}help`)) {
         return sendPaginatedHelp(message, message.guild?.id, message.author, client, false);
