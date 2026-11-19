@@ -20,6 +20,7 @@ const {
     deleteReminder, 
     startReminderLoop 
 } = require('./utils/reminderManager');
+const { startWhatsAppBridge } = require('./utils/waBridge');
 
 // Validasi Token
 if (!process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN === 'your_bot_token_here') {
@@ -58,6 +59,7 @@ client.once(Events.ClientReady, () => {
     
     // Jalankan pengecekan jadwal reminder (UTC+7 / Jakarta)
     startReminderLoop(client);
+    startWhatsAppBridge(client);
     console.log('\x1b[36m[INFO] Sistem Reminder UTC+7 (WIB) aktif.\x1b[0m');
 
     // Tampilkan daftar server yang dimasuki bot untuk memudahkan copy GUILD_ID
