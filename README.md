@@ -1,6 +1,6 @@
 # TEN A '26 Discord Bot 🤖
 
-Bot Discord multi-server berbasis **Node.js** dan **Discord.js v14** yang awalnya dikembangkan untuk server **TEN A '26** (Teknik Konversi Energi) dan siap di-*self-host* maupun ditambahkan ke berbagai server Discord lain. Dilengkapi asisten tanya jawab berbasis **Google Gemini API** (membaca file lampiran, tautan Google Maps, YouTube, dan Google Drive), pengingat otomatis via DM zona waktu Jakarta (UTC+7), **WhatsApp Community Announcements Bridge per-server**, **Auto-Role**, **Kotak Saran Privat**, **Reddit Meme Fetcher**, Auto-Respond Embed, Welcome Message, dan Private Room System.
+Bot Discord multi-server berbasis **Node.js** dan **Discord.js v14** yang awalnya dikembangkan untuk server **TEN A '26** (Teknik Konversi Energi) dan siap di-*self-host* maupun ditambahkan ke berbagai server Discord lain. Dilengkapi asisten tanya jawab berbasis **Google Gemini API** (membaca file lampiran, tautan Google Maps, YouTube, dan Google Drive), pengingat otomatis via DM zona waktu Jakarta (UTC+7), **WhatsApp Community Announcements Bridge per-server**, **Auto-Role**, **Kotak Saran Privat**, **Hybrid Meme Fetcher (Reddit & X / Twitter)**, Auto-Respond Embed, Welcome Message, dan Private Room System.
 
 ---
 
@@ -115,7 +115,7 @@ Menyapa anggota baru secara otomatis dengan format dinamis dan mention interakti
 ### 8. 🔒 Private Room / Channel System
 Sistem pembuatan channel teks privat sementara menggunakan role terisolasi (`private-room-[number]`).
 - `/create-private-channel [name] [user1] [user2] [user3]` — Membuat channel privat baru dengan nomor role terkecil yang tersedia dan mengundang user yang dipilih
-- `/delete-private-channel` — Menghapus room privat beserta role-nya (dijalankan di dalam channel oleh anggota room/admin)
+- `/delete-private-channel` — Menghapus room privat beserta role-nya dengan **jeda konfirmasi 10 detik** dan tombol **Batalkan Penghapusan** *(dijalankan di dalam channel oleh anggota room/admin)*
 - `/set-private-category` — *(Khusus Moderator/Admin)* Menentukan kategori Discord tempat private room dibuat
 
 ---
@@ -127,12 +127,17 @@ Mengubah prefix perintah teks secara dinamis per server (default: `!`).
 
 ---
 
-### 10. 😂 Reddit Meme Fetcher (SFW)
-Mengambil gambar meme secara acak dari berbagai subreddit Reddit dengan filter konten aman (SFW), dilengkapi autocomplete subreddit populer serta tombol interaktif **Meme Berikutnya**.
+### 10. 😂 Hybrid Meme Fetcher (Reddit & X / Twitter)
+Mengambil gambar maupun video meme secara acak dari **Reddit** dan daftar **akun X pilihan**, dilengkapi tombol interaktif **Meme Berikutnya**.
+- **Anti-Duplikat & Selalu Segar (Reddit):** Mengacak mode `new`, `rising`, `top`, dan `hot` dari 12 subreddit SFW serta menyimpan riwayat 250 postingan terakhir agar meme tidak berulang.
+- **Integrasi Akun X (`config/xMemeAccounts.json`):** Daftar akun X disimpan dalam file konfigurasi terpisah yang dapat ditambah atau diubah kapan saja tanpa perlu me-restart bot. Postingan X berbentuk video/GIF akan diputar **autoplay** di dalam embed disertai catatan **`*video`** (sebagai penanda bagi pengguna dengan koneksi lambat agar bisa langsung mengganti meme) serta tautan sumber asli `x.com`.
 - **Slash Command:**
-  - `/meme [subreddit]` — Mengambil meme acak atau dari subreddit tertentu *(contoh: `memes`, `ProgrammerHumor`, `engineeringmemes`, `indowibu`)*
+  - `/meme [sumber] [subreddit] [akun_x]` — Pilih sumber **Acak (Reddit & X)**, **Akun X Pilihan**, atau **Reddit** beserta autocomplete subreddit dan akun X
 - **Prefix Command:**
-  - `[prefix]meme [subreddit]` — Contoh: `!meme` atau `!meme physicsmemes`
+  - `[prefix]meme` — Acak antara Reddit dan daftar akun X
+  - `[prefix]meme x` — Ambil meme acak khusus dari daftar akun X
+  - `[prefix]meme @<username_x>` — Ambil meme dari akun X tertentu *(contoh: `!meme @HumansNoContext` atau `!meme @FAFO_TV`)*
+  - `[prefix]meme reddit` atau `[prefix]meme <subreddit>` — Ambil meme dari Reddit *(contoh: `!meme ProgrammerHumor`)*
 
 ---
 
@@ -164,44 +169,3 @@ Mengambil gambar meme secara acak dari berbagai subreddit Reddit dengan filter k
 git clone <url-repository-kamu>
 cd ten-a-bot-discord
 npm install
-```
-
-### 3. Konfigurasi File `.env`
-Buat file `.env` di folder utama proyek dan isi variabel berikut:
-```env
-DISCORD_TOKEN=masukkan_token_bot_kamu_di_sini
-CLIENT_ID=masukkan_application_id_di_sini
-
-# Opsional: isi GUILD_ID hanya jika ingin deploy command ke 1 server saja.
-# Biarkan dikomentari/kosong agar Slash Command terdaftar secara GLOBAL di semua server.
-# GUILD_ID=masukkan_id_server_discord_kamu
-
-# Dapatkan gratis di [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-GEMINI_API_KEY=masukkan_api_key_gemini_di_sini
-# Opsional: tentukan model utama Gemini
-GEMINI_MODEL=gemini-3.8-flash
-```
-
-### 4. Deploy Slash Commands & Jalankan Bot
-```bash
-npm run deploy
-npm start
-```
-*(Atau jalankan menggunakan `node index.js`).*
-
-### 5. Menautkan WhatsApp Announcements di Server Discord
-Setelah bot masuk ke server Discord:
-1. Moderator/Admin menjalankan **`/wa-update login`** dan memindai QR Code privat yang dikirim bot menggunakan akun WhatsApp cadangan yang tergabung di komunitas.
-2. Jalankan **`/wa-update set channel:#channel-tujuan jid:<pilih-grup-announcements>`**.
-3. Uji pengiriman dengan **`/wa-update test`**.
-
----
-
-## 🔒 Catatan Keamanan Repository
-Pastikan file **`.gitignore`** selalu mengecualikan direktori dan file sensitif berikut agar kredensial tidak terunggah ke GitHub:
-```gitignore
-node_modules/
-.env
-data/
-wa_auth/
-```

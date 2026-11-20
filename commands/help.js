@@ -66,7 +66,7 @@ function buildHelpPages(prefix) {
             title: '📌 Kata Kunci Cepat, Meme & Utilitas',
             shortLabel: 'Kata Kunci, Meme & Utilitas',
             emoji: '📌',
-            summary: 'Info jadwal, daftar PJ, meme Reddit, ping, & perintah dasar',
+            summary: 'Info jadwal, daftar PJ, meme Reddit & X, ping, & perintah dasar',
             fields: [
                 {
                     name: 'Kata Kunci Tanpa Prefix (Ketik Langsung di Chat)',
@@ -77,7 +77,8 @@ function buildHelpPages(prefix) {
                 {
                     name: 'Hiburan & Perintah Utilitas',
                     value:
-                        `• \`/meme [subreddit]\` atau \`${prefix}meme [subreddit]\` — Ambil meme acak dari subreddit Reddit *(contoh: \`memes\`, \`ProgrammerHumor\`, \`engineeringmemes\`)*\n` +
+                        `• \`/meme [sumber] [subreddit] [akun_x]\` atau \`${prefix}meme [x | @akun | subreddit]\`\n` +
+                        `  Ambil meme segar dari **Reddit** *(anti-duplikat)* atau **akun X pilihan** *(postingan video otomatis diputar dengan catatan \`*video\` & link sumber)*.\n` +
                         `• \`/saran isi:<pesan> [anonim] [lampiran]\` — Kirim saran secara privat ke kotak saran server\n` +
                         `• \`/ping\` atau \`${prefix}ping\` — Cek latensi dan kecepatan respon bot\n` +
                         `• \`${prefix}halo\` — Sapa bot *(juga merespons sapaan \`halo\` atau \`halo bot\`)*\n` +
@@ -95,7 +96,7 @@ function buildHelpPages(prefix) {
                     name: 'Daftar Perintah',
                     value:
                         '• `/create-private-channel` — Buat private text channel baru & undang member yang dipilih\n' +
-                        '• `/delete-private-channel` — Hapus private room beserta role-nya setelah selesai *(dijalankan di dalam channel room)*\n' +
+                        '• `/delete-private-channel` — Hapus private room beserta role-nya dengan jeda konfirmasi **10 detik** & tombol **Batalkan Penghapusan** *(dijalankan di dalam channel room)*\n' +
                         '• `/set-private-category` — Atur kategori Discord tempat private channel dibuat *(Moderator/Admin)*'
                 }
             ]
